@@ -238,10 +238,16 @@ declared as conflicting so only one can be installed. One `uv.lock` covers all t
 - **Indices are `explicit`**, so only `torch` and `triton-rocm` come from them; everything
   else resolves from PyPI.
 - All three resolve for Python 3.14 (checked 2026-10-24 with a probe lock of
-  `sentence-transformers` plus the three extras). The GPU builds themselves were not
-  installed or run.
+  `sentence-transformers` plus the three extras). The `rocm` build was installed and run on
+  the RX 7900 XT: `torch 2.14.1+rocm7.2` (HIP 7.2) sees it as `cuda:0` with 20 GiB, and an
+  fp32 matmul matches the CPU result. The `cuda` build has not been run.
 - Code never branches on the build: device selection (`cuda` covers both NVIDIA and ROCm in
   PyTorch, else `cpu`) happens once at the CLI composition root and is passed in.
+- **Pick the device explicitly.** ROCm also lists AMD integrated GPUs (on the dev machine,
+  the Ryzen's `gfx1036` as `cuda:1`), which ROCm builds do not support. Device selection
+  takes a `--device` option (default: the visible GPU with the most memory, else `cpu`)
+  and logs the chosen device's name and architecture; `HIP_VISIBLE_DEVICES=0` also hides
+  the integrated GPU.
 
 ## Running the plan
 
