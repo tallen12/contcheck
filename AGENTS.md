@@ -26,6 +26,8 @@ global interpreter.
 - Test: `just test`
 - Test coverage: `just coverage`
 - All required checks: `just check`
+- Render diagrams: `just diagrams` (needs Graphviz). Diagrams live in
+  `design-docs/images/` as `.dot` sources; commit the rendered PNG next to each.
 
 ## Working across agents
 

@@ -6,7 +6,7 @@ Oct 24, 2026 · Tyler Allen · Exported from the [source doc](https://claude.ai/
 
 Build a local, CPU-fast checker that tags grammar and spelling errors per token, using a fine-tuned small encoder over a sliding window plus a frozen document-context vector. Corrections come later, chosen per error kind.
 
-> The inference architecture diagram (8 components) lives in the source doc; it does not export to Markdown.
+![Inference architecture: one document vector conditions every token tag](images/architecture.png)
 
 The document vector is computed once and joins every token at the fusion head; SymSpell flags go straight to the error list.
 
@@ -18,39 +18,45 @@ The document vector is computed once and joins every token at the fusion head; S
 4. Overlapping predictions are merged (centre-most window wins) and BIO tags become `(span, kind, op)` errors.
 5. A corrector picks a fix per error kind (Phase 6).
 
-**Stack (assumed):** Python 3.11 for data and training — PyTorch, Hugging Face `transformers` + `datasets`, `sentence-transformers`, spaCy (`en_core_web_sm`), `errant`, `symspellpy`, `lemminflect`. Local LLM via Ollama or llama.cpp. Deployment via ONNX Runtime, callable from Python or another language (e.g. the `ort` crate in Rust).
+**Stack (assumed):** Python 3.14 managed by `uv`, with every command run through `just` (see `AGENTS.md`) — PyTorch, Hugging Face `transformers` + `datasets`, `sentence-transformers`, spaCy (`en_core_web_sm`), `errant`, `symspellpy`, `lemminflect`. Local LLM via Ollama or llama.cpp. Deployment via ONNX Runtime, callable from Python or another language (e.g. the `ort` crate in Rust). Dev tooling: `ruff`, `ty` and `pytest`, as in `AGENTS.md`.
 
-**Repo layout:**
+**Repo layout:** code follows the `src` layout in `AGENTS.md`, organized by domain. Tests mirror `src/contcheck/`: the tests for `src/contcheck/<path>/<name>.py` are `tests/unit/<path>/test_<name>.py` and, when they cross a real boundary, `tests/integration/<path>/test_<name>.py` (`just layout` enforces this).
 
 ```
-spellcheck/
-  taxonomy/         # ErrorKind, Operation, label map (single source of truth)
-  data/
-    raw/            # clean source paragraphs
-    synthetic/      # corrupted JSONL with word-level labels
-    eval/           # real human-error sets (BEA-2019, FCE, ...)
-  corrupt/          # rule-based corruptors, one module per error kind
-  llm_gen/          # local-LLM generation + ERRANT relabeling
-  features/         # doc vector: embedding, tense histogram, cache
-  model/            # ContextTagger, alignment, collator
-  train.py
-  evaluate.py
-  export_onnx.py
-  infer/            # windowing, span merging, SymSpell pre-pass
-  correct/          # per-kind correctors
+contcheck/
+  src/contcheck/
+    taxonomy/         # ErrorKind, Operation, label map (single source of truth)
+    corrupt/          # rule-based corruptors, one module per error kind, plus the applier
+    llm_gen/          # local-LLM generation + ERRANT relabeling
+    corpus/           # merge, dedupe, document-level splits, distribution report
+    features/         # doc vector: embedding, tense histogram, cache
+    model/            # ContextTagger, alignment, collator
+    training/         # train, evaluate, export_onnx
+    infer/            # windowing, span merging, SymSpell pre-pass
+    correct/          # per-kind correctors
+    cli/              # `contcheck` commands; the only composition root
   tests/
+    unit/             # mirrors src/contcheck/, in process with fakes
+    integration/      # mirrors src/contcheck/, real files, models or ONNX Runtime
+  configs/            # generation and training YAML
+  data/               # not committed
+    raw/              # clean source paragraphs
+    synthetic/        # corrupted JSONL with word-level labels
+    eval/             # real human-error sets (BEA-2019, FCE, ...)
+  design-docs/
+    images/           # Graphviz .dot sources + rendered PNGs (`just diagrams`)
 ```
 
 ## Phase 0 — Taxonomy and label scheme
 
-Define the error set once, in `taxonomy/`, and generate everything else (model label map, corruptor registry, app enum) from it. It follows ERRANT's categories so real datasets map onto it.
+Define the error set once, in `contcheck.taxonomy`, and generate everything else (model label map, corruptor registry, app enum) from it. It follows ERRANT's categories so real datasets map onto it.
 
 **Kinds (19):** Spelling, RealWord, Capitalization, WordBoundary, Apostrophe, NounNumber, SubjectVerbAgreement, VerbTense, VerbForm, AdjectiveAdverb, PronounForm, Determiner, Preposition, Conjunction, WordOrder, MissingWord, ExtraWord, SentenceBoundary, Punctuation.
 
 **Operations (3):** Missing, Unnecessary, Replacement — kept as a separate field, not baked into the tag.
 
 ```python
-# taxonomy/kinds.py
+# src/contcheck/taxonomy/kinds.py
 from enum import Enum
 
 class ErrorKind(str, Enum):
@@ -72,7 +78,7 @@ LABEL2ID = {l: i for i, l in enumerate(LABELS)}   # 39 labels
 - One kind per span. If edits overlap, keep the one ERRANT ranks first and drop the rest from training.
 - Start with the operation as metadata only. Add a second 3-way head for it once kind detection works.
 
-**Mapping from ERRANT:** write `taxonomy/errant_map.py` translating ERRANT codes (`R:VERB:TENSE`, `M:DET`, `R:SPELL`, `R:ORTH`, …) to `(ErrorKind, Operation)`. Codes with no clean mapping (`OTHER`) are dropped or reviewed by hand.
+**Mapping from ERRANT:** write `src/contcheck/taxonomy/errant_map.py` translating ERRANT codes (`R:VERB:TENSE`, `M:DET`, `R:SPELL`, `R:ORTH`, …) to `(ErrorKind, Operation)`. Codes with no clean mapping (`OTHER`) are dropped or reviewed by hand.
 
 **Done when:** a unit test round-trips every kind through `LABELS`, and every ERRANT code is either mapped or explicitly listed as dropped.
 
@@ -97,7 +103,7 @@ Train on synthetic errors from two generators, and keep real human errors for ev
 3. Filter: drop paragraphs the SymSpell pass flags heavily, or that a strong grammar check rewrites. Errors left in "clean" text become false negatives in training.
 4. Split by **document**, not sentence, so no document leaks across train/val/test.
 
-### 1b. Rule-based corruptor (`corrupt/`)
+### 1b. Rule-based corruptor (`contcheck.corrupt`)
 
 One function per kind, each returning `(new_words, edit)` so labels are exact by construction.
 
@@ -109,7 +115,7 @@ One function per kind, each returning `(new_words, edit)` so labels are exact by
 
 Sampling: 0–3 errors per paragraph, \~15% of paragraphs left clean, kind frequencies set by a config file so you can rebalance.
 
-### 1c. LLM-generated errors (`llm_gen/`)
+### 1c. LLM-generated errors (`contcheck.llm_gen`)
 
 For naturalistic, multi-word errors the rules can't produce.
 
@@ -129,7 +135,7 @@ BEA-2019 (W&I+LOCNESS dev), FCE test, CoNLL-2014, JFLEG, GitHub Typo Corpus, Bir
 Each corruptor is registered by kind and returns an `Edit` (or `None` when the paragraph has no valid site). A shared applier turns edits into noisy words and BIO labels, so labeling logic lives in one place.
 
 ```python
-# corrupt/base.py
+# src/contcheck/corrupt/base.py
 @dataclass
 class Edit:
     start: int; end: int            # word indices in the CLEAN text
@@ -146,7 +152,7 @@ def register(kind):
 ```
 
 ```python
-# corrupt/spelling.py
+# src/contcheck/corrupt/spelling.py
 @register(ErrorKind.SPELLING)
 def spelling(ctx, rng):
     sites = [i for i, w in enumerate(ctx.words) if w.isalpha() and len(w) > 3]
@@ -159,7 +165,7 @@ def spelling(ctx, rng):
 ```
 
 ```python
-# corrupt/verbs.py
+# src/contcheck/corrupt/verbs.py
 @register(ErrorKind.VERB_TENSE)
 def verb_tense(ctx, rng):
     if ctx.tense_hist["past"] < 0.8: return None   # only where the error is detectable
@@ -172,7 +178,7 @@ def verb_tense(ctx, rng):
     return Edit(i, i + 1, ErrorKind.VERB_TENSE, Operation.REPLACEMENT, [ctx.words[i]], [new[0]])
 ```
 
-**Applier rules (`corrupt/apply.py`):**
+**Applier rules (`src/contcheck/corrupt/apply.py`):**
 
 - Sample 0–3 kinds per paragraph from the config weights; retry another kind when a corruptor returns `None`.
 - Reject edits that overlap or touch adjacent words, so each label span is unambiguous.
@@ -199,7 +205,7 @@ Paragraph:
 Profiles: "an intermediate English learner whose first language is {L1}" (rotate Spanish, Mandarin, Arabic, Hindi, Russian…), "a native speaker typing fast on a phone", "a 12-year-old student". Temperature \~0.8; `n` sampled 1–4.
 
 ```python
-# llm_gen/relabel.py
+# src/contcheck/llm_gen/relabel.py
 import errant
 annotator = errant.load("en")
 
@@ -243,11 +249,13 @@ llm:
 ```
 
 ```bash
-python -m corrupt.run  --config configs/gen.yaml --in data/raw --out data/synthetic/rule.jsonl
-python -m llm_gen.run  --config configs/gen.yaml --in data/raw --out data/synthetic/llm.jsonl
-python -m data.merge   --out data/synthetic/train.jsonl   # dedupe, shuffle, keep doc splits
-python -m data.report  data/synthetic/train.jsonl          # per-kind counts, errors/paragraph
+just cli corrupt   --config configs/gen.yaml --in data/raw --out data/synthetic/rule.jsonl
+just cli generate  --config configs/gen.yaml --in data/raw --out data/synthetic/llm.jsonl
+just cli merge     --out data/synthetic/train.jsonl   # dedupe, shuffle, keep doc splits
+just cli report    data/synthetic/train.jsonl         # per-kind counts, errors/paragraph
 ```
+
+These are subcommands of the `contcheck` CLI (`src/contcheck/cli/`); add a `just` recipe for any that become routine.
 
 ### 1h. Data quality checks
 
@@ -270,7 +278,7 @@ The document vector is \~392 numbers: a frozen 384-dim embedding plus explicit t
 | Doc stats | \~4 | sentence count, mean sentence length, share of 1st-person pronouns, share of quoted text | Separates dialogue and narration |
 
 ```python
-# features/doc_vector.py
+# src/contcheck/features/doc_vector.py
 def doc_vector(text: str) -> np.ndarray:
     emb = embedder.encode(paragraphs(text)).mean(axis=0)   # (384,)
     doc = nlp(text)
@@ -290,13 +298,13 @@ def doc_vector(text: str) -> np.ndarray:
 
 Fine-tune ELECTRA-small with a fusion head; train end to end with the document vector as a fixed extra input. Get a no-context baseline working first, then add the document vector.
 
-### 3a. Tokenization and alignment (`model/align.py`)
+### 3a. Tokenization and alignment (`src/contcheck/model/align.py`)
 
 - Tokenize pre-split words with `is_split_into_words=True`.
 - Label the first subword of each word; set continuation subwords and special tokens to `-100`.
 - Training windows: 256 tokens, stride 128, built with `return_overflowing_tokens=True`. Each window carries its document's `doc_id` so the collator attaches the right vector.
 
-### 3b. Model (`model/tagger.py`)
+### 3b. Model (`src/contcheck/model/tagger.py`)
 
 ```python
 class ContextTagger(nn.Module):
@@ -352,7 +360,7 @@ Use Hugging Face `Trainer` with a custom collator, or a plain PyTorch loop; both
 
 Judge the model on real human errors with span-level F0.5, broken down by kind. Synthetic val scores are for debugging only; they will look much better than real-world performance.
 
-**Metrics (`evaluate.py`):**
+**Metrics (`src/contcheck/training/evaluate.py`):**
 
 - **Span-level precision, recall, F0.5** per kind and overall. A hit = same span and same kind. F0.5 weights precision twice as much as recall, because false alarms annoy users more than misses.
 - **Detection-only F0.5:** span correct, kind ignored. Shows whether misses are detection or classification problems.
@@ -374,7 +382,7 @@ Judge the model on real human errors with span-level F0.5, broken down by kind. 
 
 Ship three artifacts — the tagger as int8 ONNX, the embedder as ONNX, and the SymSpell dictionary — behind one `check(text) -> list[Error]` function.
 
-### 5a. Inference flow (`infer/`)
+### 5a. Inference flow (`contcheck.infer`)
 
 1. **Pre-pass:** SymSpell marks words not in the dictionary (skip numbers, URLs, code, all-caps, user dictionary words).
 2. **Doc vector:** compute once per document; recompute on edit only if the text changed by more than a paragraph.
@@ -384,7 +392,7 @@ Ship three artifacts — the tagger as int8 ONNX, the embedder as ONNX, and the 
 6. **Threshold:** flag a span only if its probability exceeds a per-kind threshold tuned on val for F0.5.
 7. **Combine with SymSpell:** a SymSpell flag the model rates as `O` with high confidence is usually a name or jargon; downgrade or drop it.
 
-### 5b. Export (`export_onnx.py`)
+### 5b. Export (`src/contcheck/training/export_onnx.py`)
 
 - `torch.onnx.export` with inputs `input_ids`, `attention_mask`, `doc_vec`; dynamic axes for batch and sequence length.
 - Dynamic int8 quantization with `onnxruntime.quantization.quantize_dynamic`.
@@ -443,4 +451,5 @@ The first useful milestone is M3: a no-context tagger on rule-based data, scored
 - Which language hosts the app — Python, or Rust/other calling ONNX Runtime? This decides whether spaCy can run at inference or the tense histogram needs a lighter POS tagger.
 - English only, or other languages later? Multilingual changes the encoder choice (e.g. a multilingual MiniLM or mDeBERTa).
 - Should the operation (M/U/R) get its own head in v1, or stay metadata until detection is solid?
+- Do PyTorch, spaCy, `errant` and ONNX Runtime all ship Python 3.14 wheels? If one does not, pin that dependency's newest working release or run that step in a separate environment; do not lower the project's Python version without updating `AGENTS.md`.
 - What latency counts as "fast": as-you-type (< 50 ms per edit) or on-demand checks (< 1 s per document)?
