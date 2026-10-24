@@ -1,6 +1,6 @@
 ---
 name: git-workflow
-description: Branch, worktree and merge workflow for this repository, built so several agents can work at once. Use when starting any new piece of work, creating a branch or worktree, finishing a task and merging it, or pushing.
+description: Branch, worktree and merge workflow for this repository, built so several agents can work at once. Use when starting any new piece of work, creating a branch or worktree, finishing a task and merging it, pushing, or backing up a work branch when a usage or credit limit, or the end of the context, is near.
 ---
 
 # Git workflow
@@ -59,8 +59,44 @@ worktree or in the main checkout while a task is in progress.
 - Commit on the work branch as you go. Small, focused commits are fine here; they are
   squashed later.
 - Run `just check` before the final commit on the branch.
-- **Never push a work branch.** Do not run `git push` with a `work/` branch, do not set an
-  upstream for it and do not open a pull request from it. Work branches exist only locally.
+- **Work branches stay local, except as a backup.** Do not push a `work/` branch or open a
+  pull request from it, with one exception: back it up (below) when the session may end
+  before the task lands.
+
+### Back up a work branch before running out
+
+Push the work branch when the session may stop mid-task: a usage, credit or rate limit is
+close or has warned, the context is nearly full, or the remaining work clearly will not
+fit in what is left. Do it while there is still room for the commands, not after the last
+step fails. Back up and keep working; stop only if the limit actually ends the session.
+
+1. Commit everything in the worktree, including unfinished code. Run the hooks; if only the
+   ruff or ty hooks fail on unfinished code, skip just those so gitleaks still runs:
+
+   ```bash
+   git add -A
+   SKIP=ruff-format,ruff-check,ty git commit -m "chore(wip): <task> backup" -m "<what is done, what is next, which checks fail>"
+   git push -u origin work/<feature>/<task>
+   ```
+
+   Never skip the gitleaks hook, and never use `--no-verify`.
+2. Tell the user the branch was pushed and what is left.
+
+To resume in a new session, fetch the branch into a fresh worktree from the main checkout
+(reuse the existing worktree instead if it is still on this machine), then continue from
+step 3:
+
+```bash
+git fetch origin
+git worktree add -b work/<feature>/<task> .worktrees/<feature>--<task> origin/work/<feature>/<task>
+cd .worktrees/<feature>--<task>
+just setup
+```
+
+A backed-up work branch is still a work branch: no pull request, and CI does not run on it.
+If you rebase it (step 4.1) and need to back it up again, update the backup with
+`git push --force-with-lease origin work/<feature>/<task>`; this is the only force-push
+allowed without asking, and only on your own work branch.
 
 ## 4. Land the task on the feature branch
 
@@ -95,7 +131,9 @@ worktree or in the main checkout while a task is in progress.
    git branch -D work/<feature>/<task>
    ```
 
-   `-D` is needed because a squash merge does not mark the branch as merged.
+   `-D` is needed because a squash merge does not mark the branch as merged. If the work
+   branch was backed up, also delete the remote copy:
+   `git push origin --delete work/<feature>/<task>`.
 
 If two agents finish at once, land one task first; the other rebases (step 4.1) and lands
 after it.
@@ -109,13 +147,15 @@ the title and description with the `pull-requests` skill:
 git push -u origin feat/<feature>
 ```
 
-The feature branch is the only branch that goes to GitHub.
+The feature branch is the only branch that goes to GitHub for review. Work branches reach
+GitHub only as backups (step 3) and are deleted when the task lands.
 
 ## Rules
 
 - Follow the commit rules in `AGENTS.md`: commit or push only when the user asks. Asking
-  for work done under this workflow covers local commits on its work branch and the squash
-  commit on the feature branch. It never covers a push.
+  for work done under this workflow covers local commits on its work branch, the squash
+  commit on the feature branch and backup pushes of the work branch (step 3). It never
+  covers pushing a feature branch or `main`.
 - Do not commit directly on `main`, and do not do task work directly on a feature branch;
   the feature branch only receives squashed commits.
 - Never force-push, rewrite the feature branch's history or delete a branch with unlanded
