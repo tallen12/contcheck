@@ -127,7 +127,8 @@ Development happens on macOS and Linux.
 
 - Use Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`).
   Keep commits focused; one logical change each.
-- Only commit or push when the user asks.
+- Only commit or push when the user asks. The one standing exception: back up a work
+  branch when a session may end mid-task, as the `git-workflow` skill describes.
 
 ## Completion
 
