@@ -1,0 +1,42 @@
+// Inference architecture for the context-aware tagger. Render with `just diagrams`.
+//
+// Three columns feed left to right: the document text fans out to the doc
+// vector, the window encoder and the SymSpell pre-pass; the fusion head joins
+// the doc vector to every token. SymSpell flags skip the model and go straight
+// to the error list.
+digraph architecture {
+  graph [
+    fontname="Helvetica", fontsize=15, fontcolor="#111111",
+    label=<<B>One document vector conditions every token tag</B>>,
+    labelloc=t, labeljust=l,
+    bgcolor="white", pad="0.3,0.25", nodesep=0.4, ranksep=0.6,
+    rankdir=LR, splines=ortho, newrank=true
+  ];
+  node [
+    shape=box, style="rounded,filled", fillcolor="white", color="#C8C6BE",
+    penwidth=1.3, fontname="Helvetica", fontsize=13, fontcolor="#1A1A1A",
+    width=1.9, height=0.6
+  ];
+  edge [color="#BDBBB2", penwidth=1.3, arrowsize=0.6];
+
+  doc_text   [label=<<B>Document text</B><BR/><FONT POINT-SIZE="11" COLOR="#666666">2 to 5 paragraphs</FONT>>];
+  doc_vector [label=<<B>Doc vector</B><BR/><FONT POINT-SIZE="11" COLOR="#666666">embedding + tenses</FONT>>];
+  encoder    [label=<<B>Window encoder</B><BR/><FONT POINT-SIZE="11" COLOR="#666666">ELECTRA-small</FONT>>];
+  symspell   [label=<<B>SymSpell pre-pass</B><BR/><FONT POINT-SIZE="11" COLOR="#666666">non-word flags</FONT>>];
+  fusion     [label=<<B>Fusion head</B><BR/><FONT POINT-SIZE="11">token + doc vector</FONT>>,
+              fillcolor="#E3ECFA", color="#3B6FD4", penwidth=2];
+  merge      [label=<<B>Merge + decode</B><BR/><FONT POINT-SIZE="11" COLOR="#666666">BIO tags to spans</FONT>>];
+  errors     [label=<<B>Errors</B><BR/><FONT POINT-SIZE="11" COLOR="#666666">span, kind, op</FONT>>];
+  corrector  [label=<<B>Corrector</B><BR/><FONT POINT-SIZE="11" COLOR="#666666">fix chosen per kind</FONT>>];
+
+  { rank=same; doc_vector; encoder; symspell; }
+  { rank=same; merge; errors; corrector; }
+
+  doc_text -> { doc_vector encoder symspell };
+  doc_vector -> fusion;
+  encoder -> fusion;
+  fusion -> merge;
+  merge -> errors;
+  symspell -> errors;
+  errors -> corrector;
+}
