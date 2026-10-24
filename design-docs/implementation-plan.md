@@ -18,7 +18,7 @@ The document vector is computed once and joins every token at the fusion head; S
 4. Overlapping predictions are merged (centre-most window wins) and BIO tags become `(span, kind, op)` errors.
 5. A corrector picks a fix per error kind (Phase 6).
 
-**Stack:** Python 3.14 managed by `uv`, with every command run through `just` (see `AGENTS.md`) — PyTorch, Hugging Face `transformers` + `datasets`, `sentence-transformers`, spaCy (`en_core_web_sm`), `errant`, `symspellpy`, `lemminflect`. Local LLM via Ollama or llama.cpp. Deployment via ONNX Runtime, callable from Python or another language (e.g. the `ort` crate in Rust). Dev tooling: `ruff`, `ty` and `pytest`, as in `AGENTS.md`. All of these resolve together for Python 3.14 on Linux x86_64 with current releases (checked 2026-10-24).
+**Stack:** Python 3.14 managed by `uv`, with every command run through `just` (see `AGENTS.md`) — PyTorch (CPU, CUDA or ROCm build, chosen at install; see the feature plan's PyTorch builds), Hugging Face `transformers` + `datasets`, `sentence-transformers`, spaCy (`en_core_web_sm`), `errant`, `symspellpy`, `lemminflect`. Local LLM via Ollama or llama.cpp. Deployment via ONNX Runtime, callable from Python or another language (e.g. the `ort` crate in Rust). Dev tooling: `ruff`, `ty` and `pytest`, as in `AGENTS.md`. All of these resolve together for Python 3.14 on Linux x86_64 with current releases (checked 2026-10-24).
 
 **Repo layout:** code follows the `src` layout in `AGENTS.md`, organized by domain. Tests mirror `src/contcheck/`: the tests for `src/contcheck/<path>/<name>.py` are `tests/unit/<path>/test_<name>.py` and, when they cross a real boundary, `tests/integration/<path>/test_<name>.py` (`just layout` enforces this).
 

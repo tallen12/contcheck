@@ -116,7 +116,7 @@ partial F8–F10 already gives M2's minimum set.
 
 | ID | Feature | Scope |
 | --- | --- | --- |
-| C3 | M3 contracts | Value types: `Window` (token ids, labels, `doc_id`, offsets), `SpanError` (span, kind, op, probability), `TrainConfig`, `EvalResult`. Protocols: `Tokenizer` (pre-split words to subwords with word ids), `Tagger` (logits for windows). Dependencies: `torch` (CPU wheel index), `transformers`, `datasets`. Pytest markers `models`, `llm`, `datasets`, deselected by default, and `just test-all`. Tiny random-weight model fixture |
+| C3 | M3 contracts | Value types: `Window` (token ids, labels, `doc_id`, offsets), `SpanError` (span, kind, op, probability), `TrainConfig`, `EvalResult`. Protocols: `Tokenizer` (pre-split words to subwords with word ids), `Tagger` (logits for windows). Dependencies: `transformers`, `datasets`, and `torch` as the `cpu`, `cuda` and `rocm` extras with their indices (see PyTorch builds); `just setup` takes the build. Device selection at the CLI root. Pytest markers `models`, `llm`, `datasets`, deselected by default, and `just test-all`. Tiny random-weight model fixture |
 
 ### Wave 6: M3 baseline tagger (parallel)
 
@@ -215,6 +215,34 @@ flowchart LR
 → F16 → F17. M3 also needs F12's real eval data, which depends on dataset access (see
 decisions below).
 
+## PyTorch builds
+
+PyTorch is installed in one of three builds, chosen at setup. Each is an optional extra in
+`pyproject.toml` whose `torch` comes from the matching PyTorch index, and the extras are
+declared as conflicting so only one can be installed. One `uv.lock` covers all three.
+
+| Extra | Build | Index | For |
+| --- | --- | --- | --- |
+| `cpu` (default) | `torch==2.14.1+cpu` | `https://download.pytorch.org/whl/cpu` | CI, laptops, inference work; macOS takes the PyPI build (CPU and MPS) |
+| `cuda` | `torch==2.14.1+cu130` (CUDA 13.0) | `https://download.pytorch.org/whl/cu130` | NVIDIA GPUs on Linux |
+| `rocm` | `torch==2.14.1+rocm7.2` | `https://download.pytorch.org/whl/rocm7.2` | AMD GPUs on Linux, including the RX 7900 series (`gfx1100`) |
+
+- **Setup takes the build:** `just setup` installs `cpu`; `just setup cuda` or `just setup
+  rocm` installs a GPU build (`uv sync --locked --extra <build>`). CI uses `cpu`.
+- **Never install without an extra.** `sentence-transformers` depends on `torch`, so a plain
+  `uv sync` on Linux pulls PyPI's default `torch`, which is a CUDA build. The `setup`
+  recipe always passes one.
+- **ROCm needs `triton-rocm` from the same index.** The ROCm `torch` depends on
+  `triton-rocm` 3.8, which exists only on the PyTorch ROCm index (PyPI has an old
+  pre-release), so the `rocm` extra lists it with that index as its source.
+- **Indices are `explicit`**, so only `torch` and `triton-rocm` come from them; everything
+  else resolves from PyPI.
+- All three resolve for Python 3.14 (checked 2026-10-24 with a probe lock of
+  `sentence-transformers` plus the three extras). The GPU builds themselves were not
+  installed or run.
+- Code never branches on the build: device selection (`cuda` covers both NVIDIA and ROCm in
+  PyTorch, else `cpu`) happens once at the CLI composition root and is passed in.
+
 ## Running the plan
 
 **Branches** follow the `git-workflow` skill. Each milestone is one feature branch
@@ -267,4 +295,4 @@ user decides. None blocks M1 or M2.
 | What latency counts as "fast" | M6 (F25) | On-demand checks under 1 s per document, with incremental re-tagging so as-you-type stays possible |
 | Access to BEA-2019, FCE and the other eval sets | M3 (F12 real data) | The user obtains them (BEA-2019 needs a request form); licenses checked before any commercial use |
 | Source of the clean corpus (50k–200k paragraphs) | M2 (F6 real data, F11 gate) | Openly licensed text across the plan's registers; readers stay source-agnostic |
-| Where training runs | M3 (F16 real runs) | A rented or local GPU for training only; everything else on CPU |
+| Where training runs | M3 (F16 real runs) | Locally on the user's AMD RX 7900 with the `rocm` build; everything else works on `cpu` |
