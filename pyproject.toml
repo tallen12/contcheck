@@ -28,6 +28,7 @@ dev = [
 [tool.ruff]
 target-version = "py314"
 line-length = 100
+extend-exclude = ["design-docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ANN", "ASYNC", "RUF", "PTH"]
