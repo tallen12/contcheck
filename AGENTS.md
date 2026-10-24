@@ -18,7 +18,7 @@ truth: tool-specific files only point here. Keep this file short, imperative and
 All commands run through `just` and use `uv`. Never call `pip`, `python -m venv` or a
 global interpreter.
 
-- Setup: `just setup`
+- Setup: `just setup` (also installs the pre-commit hooks: gitleaks, ruff, ty)
 - Format: `just format`
 - Lint: `just lint`
 - Type check: `just typecheck`

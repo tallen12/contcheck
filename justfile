@@ -2,9 +2,10 @@
 default:
     @just --list
 
-# Install locked dependencies.
+# Install locked dependencies and the git pre-commit hooks.
 setup:
     uv sync --locked
+    uv run pre-commit install
 
 # Format Python code.
 format:
