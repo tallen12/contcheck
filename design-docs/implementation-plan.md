@@ -18,7 +18,7 @@ The document vector is computed once and joins every token at the fusion head; S
 4. Overlapping predictions are merged (centre-most window wins) and BIO tags become `(span, kind, op)` errors.
 5. A corrector picks a fix per error kind (Phase 6).
 
-**Stack (assumed):** Python 3.14 managed by `uv`, with every command run through `just` (see `AGENTS.md`) — PyTorch, Hugging Face `transformers` + `datasets`, `sentence-transformers`, spaCy (`en_core_web_sm`), `errant`, `symspellpy`, `lemminflect`. Local LLM via Ollama or llama.cpp. Deployment via ONNX Runtime, callable from Python or another language (e.g. the `ort` crate in Rust). Dev tooling: `ruff`, `ty` and `pytest`, as in `AGENTS.md`.
+**Stack:** Python 3.14 managed by `uv`, with every command run through `just` (see `AGENTS.md`) — PyTorch, Hugging Face `transformers` + `datasets`, `sentence-transformers`, spaCy (`en_core_web_sm`), `errant`, `symspellpy`, `lemminflect`. Local LLM via Ollama or llama.cpp. Deployment via ONNX Runtime, callable from Python or another language (e.g. the `ort` crate in Rust). Dev tooling: `ruff`, `ty` and `pytest`, as in `AGENTS.md`. All of these resolve together for Python 3.14 on Linux x86_64 with current releases (checked 2026-10-24).
 
 **Repo layout:** code follows the `src` layout in `AGENTS.md`, organized by domain. Tests mirror `src/contcheck/`: the tests for `src/contcheck/<path>/<name>.py` are `tests/unit/<path>/test_<name>.py` and, when they cross a real boundary, `tests/integration/<path>/test_<name>.py` (`just layout` enforces this).
 
@@ -26,6 +26,9 @@ The document vector is computed once and joins every token at the fusion head; S
 contcheck/
   src/contcheck/
     taxonomy/         # ErrorKind, Operation, label map (single source of truth)
+    analysis/         # spaCy adapter: POS, lemmas, tense histogram, doc stats
+    spelling/         # SymSpell adapter: dictionary lookup and suggestions
+    annotation/       # ERRANT adapter mapping edits through taxonomy
     corrupt/          # rule-based corruptors, one module per error kind, plus the applier
     llm_gen/          # local-LLM generation + ERRANT relabeling
     corpus/           # merge, dedupe, document-level splits, distribution report
@@ -435,6 +438,8 @@ Route each detected error to a corrector by kind: rules and candidate scoring fo
 
 ## Milestones and open questions
 
+[feature-plan.md](feature-plan.md) splits these milestones into features, waves and dependencies, and tracks the open questions below as decisions with working assumptions.
+
 The first useful milestone is M3: a no-context tagger on rule-based data, scored on real errors. Everything after it is an improvement you can measure against that baseline.
 
 - [ ] **M1 — Taxonomy:** `ErrorKind`, `Operation`, `LABELS`, ERRANT mapping, round-trip tests.
@@ -451,5 +456,4 @@ The first useful milestone is M3: a no-context tagger on rule-based data, scored
 - Which language hosts the app — Python, or Rust/other calling ONNX Runtime? This decides whether spaCy can run at inference or the tense histogram needs a lighter POS tagger.
 - English only, or other languages later? Multilingual changes the encoder choice (e.g. a multilingual MiniLM or mDeBERTa).
 - Should the operation (M/U/R) get its own head in v1, or stay metadata until detection is solid?
-- Do PyTorch, spaCy, `errant` and ONNX Runtime all ship Python 3.14 wheels? If one does not, pin that dependency's newest working release or run that step in a separate environment; do not lower the project's Python version without updating `AGENTS.md`.
 - What latency counts as "fast": as-you-type (< 50 ms per edit) or on-demand checks (< 1 s per document)?
