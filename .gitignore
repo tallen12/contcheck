@@ -32,3 +32,6 @@ secrets/
 
 # OS files
 .DS_Store
+
+# Corpora, generated data and checkpoints (see design-docs/implementation-plan.md)
+/data/
