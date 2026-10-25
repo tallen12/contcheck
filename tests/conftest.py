@@ -8,13 +8,16 @@ import random
 import re
 import zlib
 from collections.abc import Iterable, Iterator, Mapping, Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
 from contcheck.analysis.models import AnalyzedText, Token
+from contcheck.corpus.record import EditRecord, Record, RecordSource, Split
 from contcheck.model.models import Encoding
 from contcheck.spelling.models import Suggestion
+from contcheck.taxonomy.kinds import ErrorKind, Operation
 
 if TYPE_CHECKING:
     from transformers import ElectraConfig
@@ -235,3 +238,65 @@ def dictionary() -> FakeDictionary:
 def rng() -> random.Random:
     """A seeded ``Rng``; ``random.Random`` implements the protocol."""
     return random.Random(13)
+
+
+def make_record(index: int, *, noisy: bool) -> Record:
+    """A seven-word record, with a VerbTense error on the second word when ``noisy``."""
+    words = ("I", "go" if noisy else "went", "to", "the", "store", "yesterday", ".")
+    labels = ("O", "B-VerbTense" if noisy else "O", "O", "O", "O", "O", "O")
+    edit = EditRecord(
+        start=1, end=2, kind=ErrorKind.VERB_TENSE, op=Operation.REPLACEMENT, orig=("went",)
+    )
+    return Record(
+        doc_id=f"doc-{index}",
+        paragraph=0,
+        variant=0,
+        split=Split.TRAIN,
+        source=RecordSource.RULE,
+        clean="I went to the store yesterday.",
+        noisy=" ".join(words),
+        words=words,
+        labels=labels,
+        edits=(edit,) if noisy else (),
+    )
+
+
+@pytest.fixture
+def records() -> list[Record]:
+    """Sixteen records, every other one with an error."""
+    return [make_record(i, noisy=i % 2 == 0) for i in range(16)]
+
+
+CHECKPOINT_VOCAB = ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", "i", "go", "went", "to", "the"]
+
+
+@pytest.fixture
+def checkpoint(tmp_path: Path, tiny_encoder_config: ElectraConfig) -> Path:
+    """A saved checkpoint of the tiny random-weight tagger, with a small WordPiece vocab."""
+    import torch
+    from transformers import BertTokenizer
+
+    from contcheck.model.checkpoint import CheckpointInfo, save_checkpoint
+    from contcheck.model.hf_tokenizer import HuggingFaceTokenizer
+    from contcheck.model.tagger import ContextTagger, encoder_from_config
+    from contcheck.taxonomy.labels import LABELS
+
+    torch.manual_seed(0)
+    model = ContextTagger(encoder_from_config(tiny_encoder_config), fuse_dim=8)
+    vocab = {token: i for i, token in enumerate(CHECKPOINT_VOCAB)}
+    tokenizer = HuggingFaceTokenizer(BertTokenizer(vocab=vocab))
+    info = CheckpointInfo(
+        encoder="tiny",
+        labels=LABELS,
+        use_doc=False,
+        fuse_dim=8,
+        window=16,
+        stride=8,
+        epoch=1,
+        val_f05=0.0,
+    )
+    directory = tmp_path / "run"
+    save_checkpoint(
+        directory, model=model, state=model.state_dict(), tokenizer=tokenizer, info=info
+    )
+    return directory

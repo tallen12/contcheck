@@ -1,7 +1,10 @@
 import random
+from pathlib import Path
 
 from contcheck.analysis.protocols import Inflector, TextAnalyzer
+from contcheck.corpus.record import Record
 from contcheck.corrupt.protocols import Rng
+from contcheck.model.checkpoint import load_checkpoint
 from contcheck.spelling.protocols import Dictionary
 from tests.conftest import FakeAnalyzer, FakeDictionary, FakeInflector, edit_distance
 
@@ -63,3 +66,16 @@ def test_edit_distance() -> None:
     assert edit_distance("kitten", "sitting") == 3
     assert edit_distance("", "abc") == 3
     assert edit_distance("same", "same") == 0
+
+
+def test_records_alternate_noisy_and_clean(records: list[Record]) -> None:
+    assert len(records) == 16
+    assert [bool(r.edits) for r in records[:4]] == [True, False, True, False]
+    assert records[0].labels[1] == "B-VerbTense"
+
+
+def test_checkpoint_fixture_loads(checkpoint: Path) -> None:
+    loaded = load_checkpoint(checkpoint)
+
+    assert loaded.info.window == 16
+    assert loaded.tokenizer.encode_words(["go"]).input_ids == (6,)
