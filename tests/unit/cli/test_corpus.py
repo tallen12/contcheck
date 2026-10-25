@@ -47,6 +47,9 @@ def test_report_prints_counts_and_targets(
 
     assert "records: 1" in plain
     assert "100.0%  100.0%" in compared
+    # Kinds with a corruptor show against their target even with no edits.
+    assert "Spelling" not in plain
+    assert "Spelling" in compared
 
 
 def make_record(doc_id: str, split: Split) -> Record:

@@ -4,6 +4,7 @@ from contcheck.analysis.protocols import Inflector
 from contcheck.corrupt.context import CorruptionContext
 from contcheck.corrupt.edit import Edit
 from contcheck.corrupt.protocols import Rng
+from contcheck.corrupt.sampling import shuffled
 from contcheck.corrupt.verbs import (
     BE_PRESENT_TO_PAST,
     be_past_to_present,
@@ -31,13 +32,16 @@ class VerbTenseCorruptor:
 
     def corrupt(self, context: CorruptionContext, rng: Rng) -> Edit | None:
         if context.tense.past >= DOMINANT_SHARE:
-            candidates = [self._to_present(context, i) for i in self._sites(context, {"VBD"})]
+            sites, shift = self._sites(context, {"VBD"}), self._to_present
         elif context.tense.present >= DOMINANT_SHARE:
-            candidates = [self._to_past(context, i) for i in self._sites(context, {"VBP", "VBZ"})]
+            sites, shift = self._sites(context, {"VBP", "VBZ"}), self._to_past
         else:
             return None
-        edits = [edit for edit in candidates if edit is not None]
-        return rng.choice(edits) if edits else None
+        # Stop at the first site that shifts, rather than inflecting every verb to use one.
+        for i in shuffled(sites, rng):
+            if (edit := shift(context, i)) is not None:
+                return edit
+        return None
 
     @staticmethod
     def _sites(context: CorruptionContext, tags: set[str]) -> list[int]:

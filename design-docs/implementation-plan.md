@@ -113,7 +113,7 @@ One function per kind, each returning `(new_words, edit)` so labels are exact by
 - **Spelling:** keyboard-adjacent substitution, transposition, deletion, doubling, phonetic swaps (ph↔f, ie↔ei). Non-word misspellings are caught by the SymSpell pre-pass, not the tagger: the PoC showed a dictionary-less model cannot tell a plausible misspelling (occured, seperate) from a rare correct word. Spelling corruption stays in the data so the tagger is robust to typos, with a low weight; the tagger's effort goes to errors made of real words.
 - **RealWord:** confusion sets (their/there/they're, then/than, form/from, affect/effect, …).
 - **VerbTense / VerbForm / SubjectVerbAgreement:** spaCy POS + `lemminflect` to re-inflect one verb (VBD→VBZ, VBZ→VBP, VBN→VBD). For tense, pick verbs in documents whose tense histogram is >80% one tense, so the error is detectable.
-- **Determiner / Preposition:** delete, insert, or swap from a closed set.
+- **Determiner / Preposition:** delete, insert, or swap from a closed set, only where the result is wrong in any context. Swapping *a* for *the*, inserting *the*, or dropping *the* usually leaves correct English, so Determiner only drops *a*/*an* before a singular noun, puts *a*/*an* before a plural, and uses the wrong *a*/*an* form.
 - **NounNumber, Capitalization, Apostrophe, WordBoundary, Punctuation, ExtraWord, MissingWord, WordOrder:** simple token operations.
 
 Sampling: 0–3 errors per paragraph, \~15% of paragraphs left clean, kind frequencies set by a config file so you can rebalance.
