@@ -5,11 +5,11 @@ from collections.abc import Callable
 from contcheck.corrupt.context import CorruptionContext
 from contcheck.corrupt.edit import Edit
 from contcheck.corrupt.protocols import Rng
+from contcheck.corrupt.sampling import shuffled
 from contcheck.spelling.protocols import Dictionary
 from contcheck.taxonomy.kinds import ErrorKind, Operation
 
 MIN_LENGTH = 4
-ATTEMPTS = 6
 PROPER_NOUN_TAGS = frozenset({"NNP", "NNPS"})
 
 KEYBOARD_ROWS = ("qwertyuiop", "asdfghjkl", "zxcvbnm")
@@ -126,12 +126,11 @@ class SpellingCorruptor:
             and token.tag not in PROPER_NOUN_TAGS
             and self._dictionary.contains(token.text)
         ]
-        if not sites:
-            return None
-        for _ in range(ATTEMPTS):
-            i = rng.choice(sites)
+        # Try every site and typo kind once, in random order, so ``None`` means no site
+        # can be misspelled; the applier drops the kind for the paragraph on ``None``.
+        for i, make_typo in shuffled([(i, typo) for i in sites for typo in TYPOS], rng):
             word = context.words[i]
-            typo = rng.choice(TYPOS)(word, rng)
+            typo = make_typo(word, rng)
             if (
                 typo is not None
                 and typo.lower() != word.lower()

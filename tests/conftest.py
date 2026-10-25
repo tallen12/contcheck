@@ -6,12 +6,21 @@ instead of models, so unit tests stay fast, offline and deterministic.
 
 import random
 import re
-from collections.abc import Iterable, Iterator, Mapping
+import zlib
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from contcheck.analysis.models import AnalyzedText, Token
+from contcheck.corpus.record import EditRecord, Record, RecordSource, Split
+from contcheck.model.models import Encoding
 from contcheck.spelling.models import Suggestion
+from contcheck.taxonomy.kinds import ErrorKind, Operation
+
+if TYPE_CHECKING:
+    from transformers import ElectraConfig
 
 FINITE_TAGS = frozenset({"VBD", "VBP", "VBZ", "MD"})
 TOKEN_PATTERN = re.compile(r"\w+(?:'\w+)?|[^\w\s]")
@@ -160,6 +169,56 @@ def edit_distance(a: str, b: str) -> int:
     return previous[-1]
 
 
+class FakeTokenizer:
+    """A ``Tokenizer`` that lowercases words and cuts them into three-letter pieces.
+
+    Piece ids are a hash into a small vocabulary, so the tiny test model can embed them.
+    """
+
+    vocab_size = 512
+    pad_id = 0
+    cls_id = 1
+    sep_id = 2
+    first_piece_id = 3
+    piece_length = 3
+
+    def encode_words(self, words: Sequence[str]) -> Encoding:
+        input_ids: list[int] = []
+        word_ids: list[int] = []
+        for index, word in enumerate(words):
+            lower = word.lower() or " "
+            for start in range(0, len(lower), self.piece_length):
+                input_ids.append(self.piece_id(lower[start : start + self.piece_length]))
+                word_ids.append(index)
+        return Encoding(tuple(input_ids), tuple(word_ids))
+
+    def piece_id(self, piece: str) -> int:
+        span = self.vocab_size - self.first_piece_id
+        return self.first_piece_id + zlib.crc32(piece.encode("utf-8")) % span
+
+
+@pytest.fixture
+def tokenizer() -> FakeTokenizer:
+    return FakeTokenizer()
+
+
+@pytest.fixture
+def tiny_encoder_config() -> ElectraConfig:
+    """A two-layer ELECTRA config for models with random weights; nothing is downloaded."""
+    from transformers import ElectraConfig
+
+    return ElectraConfig(
+        vocab_size=FakeTokenizer.vocab_size,
+        embedding_size=16,
+        hidden_size=16,
+        num_hidden_layers=2,
+        num_attention_heads=2,
+        intermediate_size=32,
+        max_position_embeddings=64,
+        pad_token_id=FakeTokenizer.pad_id,
+    )
+
+
 @pytest.fixture
 def analyzer() -> FakeAnalyzer:
     return FakeAnalyzer()
@@ -179,3 +238,65 @@ def dictionary() -> FakeDictionary:
 def rng() -> random.Random:
     """A seeded ``Rng``; ``random.Random`` implements the protocol."""
     return random.Random(13)
+
+
+def make_record(index: int, *, noisy: bool) -> Record:
+    """A seven-word record, with a VerbTense error on the second word when ``noisy``."""
+    words = ("I", "go" if noisy else "went", "to", "the", "store", "yesterday", ".")
+    labels = ("O", "B-VerbTense" if noisy else "O", "O", "O", "O", "O", "O")
+    edit = EditRecord(
+        start=1, end=2, kind=ErrorKind.VERB_TENSE, op=Operation.REPLACEMENT, orig=("went",)
+    )
+    return Record(
+        doc_id=f"doc-{index}",
+        paragraph=0,
+        variant=0,
+        split=Split.TRAIN,
+        source=RecordSource.RULE,
+        clean="I went to the store yesterday.",
+        noisy=" ".join(words),
+        words=words,
+        labels=labels,
+        edits=(edit,) if noisy else (),
+    )
+
+
+@pytest.fixture
+def records() -> list[Record]:
+    """Sixteen records, every other one with an error."""
+    return [make_record(i, noisy=i % 2 == 0) for i in range(16)]
+
+
+CHECKPOINT_VOCAB = ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", "i", "go", "went", "to", "the"]
+
+
+@pytest.fixture
+def checkpoint(tmp_path: Path, tiny_encoder_config: ElectraConfig) -> Path:
+    """A saved checkpoint of the tiny random-weight tagger, with a small WordPiece vocab."""
+    import torch
+    from transformers import BertTokenizer
+
+    from contcheck.model.checkpoint import CheckpointInfo, save_checkpoint
+    from contcheck.model.hf_tokenizer import HuggingFaceTokenizer
+    from contcheck.model.tagger import ContextTagger, encoder_from_config
+    from contcheck.taxonomy.labels import LABELS
+
+    torch.manual_seed(0)
+    model = ContextTagger(encoder_from_config(tiny_encoder_config), fuse_dim=8)
+    vocab = {token: i for i, token in enumerate(CHECKPOINT_VOCAB)}
+    tokenizer = HuggingFaceTokenizer(BertTokenizer(vocab=vocab))
+    info = CheckpointInfo(
+        encoder="tiny",
+        labels=LABELS,
+        use_doc=False,
+        fuse_dim=8,
+        window=16,
+        stride=8,
+        epoch=1,
+        val_f05=0.0,
+    )
+    directory = tmp_path / "run"
+    save_checkpoint(
+        directory, model=model, state=model.state_dict(), tokenizer=tokenizer, info=info
+    )
+    return directory

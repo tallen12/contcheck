@@ -35,16 +35,17 @@ class Corrupted:
 
 
 def weighted_choice[T](weights: Mapping[T, float], rng: Rng) -> T:
-    """Pick a key with probability proportional to its weight. Weights must be positive."""
-    total = sum(weights.values())
-    if not weights or total <= 0:
+    """Pick a key with probability proportional to its weight; zero weights never win."""
+    positive = [(key, weight) for key, weight in weights.items() if weight > 0]
+    if not positive:
         raise ValueError("need at least one positive weight")
-    point = rng.random() * total
-    for key, weight in weights.items():
+    point = rng.random() * sum(weight for _, weight in positive)
+    for key, weight in positive:
         point -= weight
         if point < 0:
             return key
-    return next(reversed(list(weights)))
+    # Float rounding can leave a tiny remainder; the last positive key absorbs it.
+    return positive[-1][0]
 
 
 def _footprint(edit: Edit) -> tuple[int, int]:

@@ -107,6 +107,74 @@ Synthetic scores overstate real-world quality (implementation plan, Phase 4). Th
 proves the pipeline works end to end; M3's evaluation on real human errors judges the
 model.
 
+## First run (2026-10-24)
+
+Measured on the dev machine with `configs/gen.yaml` and `configs/train.yaml` as committed.
+
+- **Data:** 60,000 Wikipedia paragraphs from 10,222 articles; `corrupt` wrote 120,000
+  records in 3.5 minutes on CPU; after `merge`, 106,291 train, 5,829 val and 6,098 test
+  records, with no round-trip failures.
+- **Training:** 106,968 windows on the RX 7900 XT with bfloat16 autocast. Val F0.5 peaked
+  after epoch 1 (0.829) and fell after epoch 2 (0.821), so early stopping kept epoch 1. The
+  whole run, two epochs with validation after each, took 5 minutes 20 seconds.
+- **Synthetic val, span-level F0.5:**
+
+  | Kind | Tagger | SymSpell only |
+  | --- | --- | --- |
+  | Spelling | 0.884 | 0.453 |
+  | RealWord | 0.960 | — |
+  | SubjectVerbAgreement | 0.881 | — |
+  | VerbTense | 0.740 | — |
+  | Determiner | 0.644 | — |
+  | Overall | 0.829 | 0.377 |
+
+  Detection-only F0.5 was 0.831, and the tagger made 4.4 false alarms per 1,000 clean words
+  (SymSpell: 7.7).
+- **Hand-written sentences:** `tag` flagged the error in one sentence per kind and in the
+  example above (`go`, `buyed`, `there`), and flagged nothing in any corrected version. It
+  also made one extra flag, Determiner at 0.53 on a correct word in the VerbTense sentence.
+
+## Second run: realistic misspellings (2026-10-24)
+
+The first model missed plain misspellings such as "libary" and "tomorow". Probing showed
+two causes. Real misspellings follow sound and word structure and split into
+normal-looking subwords (`occur ##ed`), while the corruptor's keyboard slips split into
+junk. And because errors were never on neighbouring words, adjacent typos suppressed each
+other. The Spelling corruptor gained realistic patterns, `adjacent_share: 0.1` put some
+errors side by side, and `evaluate` gained a check that swaps 96 common real misspellings
+into val text (1,132 probes, never next to a labeled error).
+
+Both models on the first run's val set (same text):
+
+| Measure | First run | Second run |
+| --- | --- | --- |
+| Overall span F0.5 | 0.829 | 0.815 |
+| Spelling F0.5 | 0.884 | 0.879 |
+| False alarms per 1,000 clean words | 4.42 | 5.06 |
+| Real misspellings flagged, in val text | 0.623 | 0.681 |
+| Real misspellings flagged, one fixed sentence | 0.34 | 0.32 |
+| Typo caught when the next word also has one | 0.917 | 0.936 |
+| That neighbouring typo caught | 0.827 | 0.858 |
+
+The SymSpell baseline flags every probe, because each listed misspelling is a non-word
+for it.
+
+**Reading:** the patterns helped only a little (+6 points in context, nothing in a
+neutral sentence), and they cost some precision. The tagger still misses "libary" and
+"tomorow" in "Their going too the libary tomorow and he dont like it." The model has no
+dictionary, so it cannot tell a plausible misspelling from a rare correct word.
+
+**Decision:** non-word misspellings belong to the deterministic SymSpell pre-pass
+(implementation plan, Phase 5a step 1), not the tagger. The patterns are reverted;
+adjacent errors stay. The tagger's job is errors made of real words, the ones a
+dictionary cannot see. Next: a held-out confusion check to test whether the model
+generalizes beyond the pairs it trained on, then broader real-word error generation
+and more registers than Wikipedia. M6 still needs a rule for combining SymSpell flags
+with the tagger. Dropping flags the model rates as confident `O` would discard real
+misspellings like the ones above, so that rule should be revisited.
+The first run's model and data are kept locally as `runs/baseline-v1` and
+`data/synthetic-v1`.
+
 ## Decisions
 
 | Decision | Assumption |

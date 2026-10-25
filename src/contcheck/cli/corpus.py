@@ -3,9 +3,11 @@
 from enum import StrEnum
 from itertools import chain
 from pathlib import Path
+from typing import assert_never
 
 from cyclopts import App
 
+from contcheck.cli.corrupt import RULE_KINDS
 from contcheck.corpus.fetch import ParagraphFilter, fetch_paragraphs
 from contcheck.corpus.jsonl import read_jsonl, write_jsonl
 from contcheck.corpus.merge import merge_records
@@ -61,6 +63,8 @@ def _article_source(source: CorpusSource, *, seed: int) -> ArticleSource:
     match source:
         case CorpusSource.WIKIPEDIA:
             return WikipediaArticles(stream_from_hub, seed=seed)
+        case unreachable:
+            assert_never(unreachable)
 
 
 def merge(inputs: list[Path], /, *, out_dir: Path, seed: int = 13) -> None:
@@ -104,6 +108,7 @@ def report(path: Path, /, *, config: Path | None = None) -> None:
         format_report(
             summary,
             target_errors=gen_config.errors_per_paragraph,
-            target_kinds={kind: gen_config.weight(kind) for kind in summary.kinds},
+            # Every kind with a corruptor, so one that never fired shows 0 against its target.
+            target_kinds={kind: gen_config.weight(kind) for kind in RULE_KINDS},
         )
     )

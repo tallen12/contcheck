@@ -17,6 +17,19 @@ from contcheck.corrupt.registry import CorruptorRegistry
 from contcheck.corrupt.spelling import SpellingCorruptor
 from contcheck.corrupt.verb_tense import VerbTenseCorruptor
 from contcheck.spelling.symspell_dictionary import load_symspell_dictionary
+from contcheck.taxonomy.kinds import ErrorKind
+
+RULE_KINDS: tuple[ErrorKind, ...] = tuple(
+    corruptor.kind
+    for corruptor in (
+        SpellingCorruptor,
+        RealWordCorruptor,
+        DeterminerCorruptor,
+        VerbTenseCorruptor,
+        AgreementCorruptor,
+    )
+)
+"""The kinds :func:`build_registry` has corruptors for, known without loading adapters."""
 
 
 def build_registry() -> CorruptorRegistry:
