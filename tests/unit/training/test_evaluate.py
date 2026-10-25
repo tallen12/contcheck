@@ -12,8 +12,8 @@ from contcheck.training.evaluate import (
     format_result,
     symspell_baseline,
 )
-from contcheck.training.misspellings import build_probes
 from contcheck.training.models import EvalResult
+from contcheck.training.probes import CheckName, ProbeSet, substitution_probes
 from tests.conftest import FakeDictionary, FakeTokenizer
 
 GO = FakeTokenizer().piece_id("go")
@@ -92,10 +92,9 @@ def test_format_result_lists_kinds_and_summary(
     assert "false alarms per 1,000 clean words: 0.00 (56 words)" in text
 
 
-def test_probes_add_the_real_misspelling_check(
-    records: list[Record], tokenizer: FakeTokenizer
-) -> None:
-    probes = build_probes(records, {"store": ("stor",), "yesterday": ("yesturday",)})
+def test_checks_are_scored_and_shown(records: list[Record], tokenizer: FakeTokenizer) -> None:
+    misspelled = substitution_probes(records, {"store": ("stor",), "yesterday": ("yesturday",)})
+    checks = {CheckName.REAL_MISSPELLINGS: ProbeSet(ErrorKind.SPELLING, misspelled)}
 
     tagged = evaluate_tagger(
         records,
@@ -106,16 +105,17 @@ def test_probes_add_the_real_misspelling_check(
         batch_size=4,
         name="perfect",
         dataset="fixture",
-        probes=probes,
+        checks=checks,
     )
     baseline = symspell_baseline(
-        records, dictionary=FakeDictionary(), dataset="fixture", probes=probes
+        records, dictionary=FakeDictionary(), dataset="fixture", checks=checks
     )
 
-    assert tagged.natural_misspellings == baseline.natural_misspellings == len(probes) > 0
-    assert tagged.natural_misspelling_recall == 0.0
-    assert baseline.natural_misspelling_recall == 1.0
-    assert "real misspellings flagged: 1.000" in format_result(baseline)
-    assert "real misspellings" not in format_result(
-        symspell_baseline(records, dictionary=FakeDictionary(), dataset="x")
-    )
+    tagged_check = tagged.checks[CheckName.REAL_MISSPELLINGS]
+    baseline_check = baseline.checks[CheckName.REAL_MISSPELLINGS]
+    assert tagged_check.probes == baseline_check.probes == len(misspelled) > 0
+    assert tagged_check.detected == 0.0
+    assert baseline_check.correct_kind == 1.0
+    assert "real-misspellings: flagged 1.000, with the right kind 1.000" in format_result(baseline)
+    plain = symspell_baseline(records, dictionary=FakeDictionary(), dataset="x")
+    assert "real-misspellings" not in format_result(plain)

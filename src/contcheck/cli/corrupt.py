@@ -1,5 +1,6 @@
 """``contcheck corrupt``: generate rule-based training data."""
 
+from collections.abc import Mapping
 from itertools import islice
 from pathlib import Path
 
@@ -9,9 +10,10 @@ from contcheck.corpus.documents import SplitShares, group_documents
 from contcheck.corpus.jsonl import write_jsonl
 from contcheck.corpus.readers import read_paragraphs
 from contcheck.corrupt.agreement import AgreementCorruptor
-from contcheck.corrupt.config import load_gen_config
+from contcheck.corrupt.config import GenConfig, load_gen_config
 from contcheck.corrupt.determiner import DeterminerCorruptor
 from contcheck.corrupt.generate import generate_records
+from contcheck.corrupt.holdout import ConfusionSplit, split_confusions
 from contcheck.corrupt.real_word import RealWordCorruptor, load_confusion_sets
 from contcheck.corrupt.registry import CorruptorRegistry
 from contcheck.corrupt.spelling import SpellingCorruptor
@@ -19,13 +21,23 @@ from contcheck.corrupt.verb_tense import VerbTenseCorruptor
 from contcheck.spelling.symspell_dictionary import load_symspell_dictionary
 
 
-def build_registry() -> CorruptorRegistry:
+def confusion_split(config: GenConfig) -> ConfusionSplit:
+    """The confusion pairs for training and the ones withheld for the held-out check.
+
+    ``corrupt`` and ``evaluate`` both derive the split here, from the same config.
+    """
+    return split_confusions(
+        load_confusion_sets(), share=config.held_out_confusion_share, seed=config.seed
+    )
+
+
+def build_registry(confusions: Mapping[str, tuple[str, ...]]) -> CorruptorRegistry:
     """Every corruptor the proof of concept has, wired to the real adapters."""
     inflector = LemmInflector()
     return CorruptorRegistry(
         [
             SpellingCorruptor(load_symspell_dictionary()),
-            RealWordCorruptor(load_confusion_sets()),
+            RealWordCorruptor(confusions),
             DeterminerCorruptor(),
             VerbTenseCorruptor(inflector),
             AgreementCorruptor(inflector),
@@ -58,7 +70,7 @@ def corrupt(
     records = generate_records(
         islice(documents, limit),
         analyzer=load_spacy_analyzer(),
-        registry=build_registry(),
+        registry=build_registry(confusion_split(gen_config).train),
         config=gen_config,
     )
     count = write_jsonl(out, records)

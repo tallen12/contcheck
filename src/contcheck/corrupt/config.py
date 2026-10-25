@@ -23,6 +23,8 @@ class GenConfig(BaseModel):
     """Relative weight per kind name; ``default`` applies to kinds not listed."""
     adjacent_share: float = Field(default=0.0, ge=0, le=1)
     """Share of paragraphs with two or more errors whose errors sit on neighbouring words."""
+    held_out_confusion_share: float = Field(default=0.0, ge=0, lt=1)
+    """Share of confusion pairs withheld from training for the held-out check."""
 
     @field_validator("errors_per_paragraph")
     @classmethod
