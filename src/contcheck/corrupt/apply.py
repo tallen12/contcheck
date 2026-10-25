@@ -1,7 +1,9 @@
 """Turning corruptor edits into noisy words and exact BIO labels.
 
-All labeling happens here, so corruptors only decide what to change. Edits are kept
-apart by at least one untouched word, which keeps every label span unambiguous.
+All labeling happens here, so corruptors only decide what to change. Edits never
+overlap. Most are kept apart by at least one untouched word; a configurable share of
+paragraphs gets errors on neighbouring words, because real writers make those and a
+model that never sees them learns that an error's neighbours are always correct.
 """
 
 from collections.abc import Mapping, Sequence
@@ -18,6 +20,8 @@ from contcheck.taxonomy.kinds import ErrorKind, Operation
 
 ATTEMPTS_PER_ERROR = 4
 """How often to ask for another edit when one clashes with those already chosen."""
+ADJACENT_ATTEMPTS = 24
+"""How many proposals to try when looking for an edit next to one already chosen."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,21 +47,32 @@ def weighted_choice[T](weights: Mapping[T, float], rng: Rng) -> T:
     return next(reversed(list(weights)))
 
 
-def clashes(edit: Edit, chosen: Sequence[Edit]) -> bool:
-    """Whether ``edit`` overlaps or touches any chosen edit.
+def _footprint(edit: Edit) -> tuple[int, int]:
+    # An insertion occupies the word it is inserted before.
+    return edit.start, max(edit.end, edit.start + 1)
 
-    An insertion occupies the word it is inserted before, so two edits always have an
-    untouched word between them.
+
+def clashes(edit: Edit, chosen: Sequence[Edit], *, allow_touching: bool = False) -> bool:
+    """Whether ``edit`` overlaps, or without ``allow_touching`` touches, a chosen edit.
+
+    A Missing edit always needs an untouched word on each side: its label goes on a
+    neighbouring word, which another edit must not claim.
     """
+    start, end = _footprint(edit)
+    for other in chosen:
+        other_start, other_end = _footprint(other)
+        strict = not allow_touching or Operation.MISSING in (edit.op, other.op)
+        if strict and start <= other_end and other_start <= end:
+            return True
+        if start < other_end and other_start < end:
+            return True
+    return False
 
-    def footprint(e: Edit) -> tuple[int, int]:
-        return e.start, max(e.end, e.start + 1)
 
-    start, end = footprint(edit)
-    return any(
-        start <= other_end and other_start <= end
-        for other_start, other_end in map(footprint, chosen)
-    )
+def touches(edit: Edit, chosen: Sequence[Edit]) -> bool:
+    """Whether ``edit`` sits on a word right next to a chosen edit."""
+    start, end = _footprint(edit)
+    return any(end == other[0] or start == other[1] for other in map(_footprint, chosen))
 
 
 def match_case(original: str, new: str) -> str:
@@ -79,7 +94,7 @@ def apply_edits(context: CorruptionContext, edits: Sequence[Edit]) -> Corrupted:
     """
     ordered = sorted(edits, key=lambda e: e.start)
     for i, edit in enumerate(ordered):
-        if clashes(edit, ordered[:i]):
+        if clashes(edit, ordered[:i], allow_touching=True):
             raise ValueError(f"edit at {edit.start} clashes with an earlier edit")
     words = list(context.words)
     spaces = [token.space_after for token in context.tokens]
@@ -116,6 +131,24 @@ def apply_edits(context: CorruptionContext, edits: Sequence[Edit]) -> Corrupted:
     return Corrupted(tuple(words), tuple(spaces), tuple(labels), tuple(records))
 
 
+def _touching_edit(
+    context: CorruptionContext,
+    registry: CorruptorRegistry,
+    weights: Mapping[ErrorKind, float],
+    chosen: Sequence[Edit],
+    rng: Rng,
+) -> Edit | None:
+    for _ in range(ADJACENT_ATTEMPTS):
+        edit = registry.get(weighted_choice(weights, rng)).corrupt(context, rng)
+        if (
+            edit is not None
+            and touches(edit, chosen)
+            and not clashes(edit, chosen, allow_touching=True)
+        ):
+            return edit
+    return None
+
+
 def choose_edits(
     context: CorruptionContext, registry: CorruptorRegistry, config: GenConfig, rng: Rng
 ) -> list[Edit]:
@@ -123,14 +156,24 @@ def choose_edits(
 
     A corruptor that finds no site is dropped for this paragraph and another kind is
     tried; an edit that clashes with the chosen ones is discarded. The paragraph may end
-    up with fewer errors than sampled.
+    up with fewer errors than sampled. With probability ``config.adjacent_share``, a
+    paragraph with two or more errors gets them on neighbouring words where corruptors
+    offer such sites; otherwise errors are kept apart.
     """
     count = weighted_choice(config.errors_per_paragraph, rng)
     weights = {kind: w for kind in registry.kinds() if (w := config.weight(kind)) > 0}
+    adjacent = count >= 2 and config.adjacent_share > 0 and rng.random() < config.adjacent_share
     chosen: list[Edit] = []
     attempts = count * ATTEMPTS_PER_ERROR
     while len(chosen) < count and weights and attempts > 0:
         attempts -= 1
+        if adjacent and chosen:
+            edit = _touching_edit(context, registry, weights, chosen, rng)
+            if edit is not None:
+                chosen.append(edit)
+                continue
+            # No site next to the chosen edits: place the rest apart.
+            adjacent = False
         kind = weighted_choice(weights, rng)
         edit = registry.get(kind).corrupt(context, rng)
         if edit is None:

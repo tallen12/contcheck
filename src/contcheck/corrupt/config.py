@@ -21,6 +21,8 @@ class GenConfig(BaseModel):
     """Relative weight of each error count; 0 leaves the paragraph clean."""
     kind_weights: dict[str, float]
     """Relative weight per kind name; ``default`` applies to kinds not listed."""
+    adjacent_share: float = Field(default=0.0, ge=0, le=1)
+    """Share of paragraphs with two or more errors whose errors sit on neighbouring words."""
 
     @field_validator("errors_per_paragraph")
     @classmethod

@@ -1,0 +1,55 @@
+device cuda:0: AMD Radeon RX 7900 XT (gfx1100, 20 GiB)
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 76673.39it/s]
+[transformers] [1mElectraModel LOAD REPORT[0m from: google/electra-small-discriminator
+Key                                               | Status     |  | 
+--------------------------------------------------+------------+--+-
+discriminator_predictions.dense.weight            | UNEXPECTED |  | 
+discriminator_predictions.dense_prediction.weight | UNEXPECTED |  | 
+discriminator_predictions.dense.bias              | UNEXPECTED |  | 
+discriminator_predictions.dense_prediction.bias   | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (692 > 512). Running this sequence through the model will result in indexing errors
+106291 train records, 106968 windows
+epoch 1 step 200/3343 loss 1.3484
+epoch 1 step 400/3343 loss 0.7118
+epoch 1 step 600/3343 loss 0.4950
+epoch 1 step 800/3343 loss 0.3848
+epoch 1 step 1000/3343 loss 0.3180
+epoch 1 step 1200/3343 loss 0.2728
+epoch 1 step 1400/3343 loss 0.2405
+epoch 1 step 1600/3343 loss 0.2161
+epoch 1 step 1800/3343 loss 0.1969
+epoch 1 step 2000/3343 loss 0.1813
+epoch 1 step 2200/3343 loss 0.1686
+epoch 1 step 2400/3343 loss 0.1579
+epoch 1 step 2600/3343 loss 0.1488
+epoch 1 step 2800/3343 loss 0.1411
+epoch 1 step 3000/3343 loss 0.1346
+epoch 1 step 3200/3343 loss 0.1286
+epoch 1: loss 0.1248, val F0.5 0.8285, detection F0.5 0.8307
+epoch 2 step 200/3343 loss 0.0330
+epoch 2 step 400/3343 loss 0.0333
+epoch 2 step 600/3343 loss 0.0333
+epoch 2 step 800/3343 loss 0.0329
+epoch 2 step 1000/3343 loss 0.0330
+epoch 2 step 1200/3343 loss 0.0330
+epoch 2 step 1400/3343 loss 0.0329
+epoch 2 step 1600/3343 loss 0.0327
+epoch 2 step 1800/3343 loss 0.0327
+epoch 2 step 2000/3343 loss 0.0325
+epoch 2 step 2200/3343 loss 0.0324
+epoch 2 step 2400/3343 loss 0.0322
+epoch 2 step 2600/3343 loss 0.0322
+epoch 2 step 2800/3343 loss 0.0321
+epoch 2 step 3000/3343 loss 0.0320
+epoch 2 step 3200/3343 loss 0.0319
+epoch 2: loss 0.0318, val F0.5 0.8207, detection F0.5 0.8224
+stopping: no improvement since epoch 1
+saved epoch 1 (val F0.5 0.8285) to runs/baseline
+
+real	5m19.744s
+user	5m54.635s
+sys	2m43.572s
