@@ -368,6 +368,7 @@ source = { editable = "." }
 dependencies = [
     { name = "cyclopts" },
     { name = "datasets" },
+    { name = "httpx" },
     { name = "lemminflect" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -404,6 +405,7 @@ dev = [
 requires-dist = [
     { name = "cyclopts", specifier = ">=5.3.0" },
     { name = "datasets", specifier = ">=5.1.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "lemminflect", specifier = ">=0.2.3" },
     { name = "pydantic", specifier = ">=2.14.1" },
     { name = "pyyaml", specifier = ">=6.0.3" },

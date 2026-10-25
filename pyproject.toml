@@ -10,6 +10,7 @@ requires-python = ">=3.14"
 dependencies = [
     "cyclopts>=5.3.0",
     "datasets>=5.1.0",
+    "httpx>=0.28.1",
     "lemminflect>=0.2.3",
     "pydantic>=2.14.1",
     "pyyaml>=6.0.3",

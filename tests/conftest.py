@@ -15,6 +15,7 @@ import pytest
 
 from contcheck.analysis.models import AnalyzedText, Token
 from contcheck.corpus.record import EditRecord, Record, RecordSource, Split
+from contcheck.llm.models import ChatMessage, ChatOptions, LLMError
 from contcheck.model.models import Encoding
 from contcheck.spelling.models import Suggestion
 from contcheck.taxonomy.kinds import ErrorKind, Operation
@@ -195,6 +196,27 @@ class FakeTokenizer:
     def piece_id(self, piece: str) -> int:
         span = self.vocab_size - self.first_piece_id
         return self.first_piece_id + zlib.crc32(piece.encode("utf-8")) % span
+
+
+class FakeLLMClient:
+    """An ``LLMClient`` that answers with scripted replies and records each request.
+
+    A reply that is an ``LLMError`` is raised instead of returned. Once the script runs
+    out, the last reply repeats.
+    """
+
+    def __init__(self, replies: Sequence[str | LLMError]) -> None:
+        if not replies:
+            raise ValueError("FakeLLMClient needs at least one reply")
+        self._replies = list(replies)
+        self.requests: list[tuple[tuple[ChatMessage, ...], ChatOptions]] = []
+
+    def complete(self, messages: Sequence[ChatMessage], *, options: ChatOptions) -> str:
+        self.requests.append((tuple(messages), options))
+        reply = self._replies.pop(0) if len(self._replies) > 1 else self._replies[0]
+        if isinstance(reply, LLMError):
+            raise reply
+        return reply
 
 
 @pytest.fixture

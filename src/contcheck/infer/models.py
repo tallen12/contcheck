@@ -11,8 +11,8 @@ class SpanError:
 
     ``probability`` is the model's mean probability for the span's labels. The operation
     (Missing, Unnecessary, Replacement) is not predicted yet; the tagger only finds kinds.
-    ``formality`` comes from a :class:`~contcheck.infer.protocols.FormalityClassifier`
-    after decoding; decoding alone always gives ``ERROR``.
+    ``formality`` is always ``ERROR`` for now: a classifier that marks informal spans
+    after decoding is planned (implementation plan, Formality).
     """
 
     start: int
