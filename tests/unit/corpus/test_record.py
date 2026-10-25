@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from contcheck.corpus.record import EditRecord, Record, RecordSource, Split
+from contcheck.corpus.record import EditRecord, Record, RecordSource, Split, revert_edits
 from contcheck.taxonomy.kinds import ErrorKind, Formality, Operation
 
 
@@ -72,3 +72,14 @@ def test_formality_defaults_to_error_for_older_records() -> None:
 
     assert edit.formality is Formality.ERROR
     assert informal.formality is Formality.INFORMAL
+
+
+def test_revert_undoes_a_replacement_before_a_missing_edit_at_its_start() -> None:
+    edits = [
+        EditRecord(start=1, end=1, kind=ErrorKind.PREPOSITION, op=Operation.MISSING, orig=("IN",)),
+        EditRecord(
+            start=1, end=2, kind=ErrorKind.SPELLING, op=Operation.REPLACEMENT, orig=("Rehab",)
+        ),
+    ]
+
+    assert revert_edits(["track", "INRihab", "."], edits) == ("track", "IN", "Rehab", ".")

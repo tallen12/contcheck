@@ -240,6 +240,89 @@ lower its share, drop look-alike pairs where both words are common in the same c
 and tighten Determiner insertions and Preposition swaps. Track the held-out check and the
 false-alarm rate together. Real human-error evaluation (F12) remains the decisive test.
 
+## Corpus correction (2026-10-25)
+
+The rule corruptors label exactly the errors they add. They cannot label errors already in
+the "clean" text, which become false negatives. So the corpus is corrected before
+corruption: corpus → corrected corpus → `corrupt`. `corpus annotate` finds the errors and
+`corpus correct` applies them (implementation plan, Phase 1a step 3). A separate LLM
+corruption step (Phase 1c, F21) is still to come.
+
+```bash
+just cli corpus annotate --in data/raw --out data/annotated --reasoning-switch
+just cli corpus verify --in data/annotated --out data/verified --reasoning-switch
+just cli corpus correct --in data/verified --out data/corrected
+just cli corrupt --config configs/gen.yaml --in data/corrected --out data/synthetic/rule.jsonl
+```
+
+A rewrite is fine as long as the corrected text is correct, so the measure is how often
+the output is wrong, not how often the model's edit was needed.
+
+Sample: the first 30 paragraphs of each of the seven raw files, annotated by
+`qwen3-coder:30b`. 4 of the 210 failed annotation and are left out. Of the 206 left, 127
+were unchanged, 75 corrected with 92 changes, and 4 dropped by the checks. Hand review of
+all 102 proposed error changes:
+
+| Outcome | Changes | Examples |
+| --- | ---: | --- |
+| Fixes a real error | 31 | "ws founded" → "was founded", "insitute", "has born the test" → "borne", "receptive of" → "to", "the trade-off … are" → "is" |
+| Optional rewrite, still correct | 52 | "took place" → "occurred", "2-dimensional" → "two-dimensional", added commas |
+| Correct, but changes the meaning | 4 | "one or two loops" → "one or more", "neighboring town" → "towns" |
+| Makes the text wrong, caught by a check | 4 | "string." → "string..", "2012," → "2012,,", "Specifically" → "specifically" at a sentence start |
+| Makes the text wrong, dropped with a caught paragraph | 1 | "the curt service" → "cut" |
+| Makes the text wrong, not caught | 10 | "Portuguese legs" → "ledge", "criminal sittings" → "sitting", "there was a leak" → "were", "all countries … are" → "is", "each sub-shell … has" → "have", "took watch in turns" → "took turns in turns", a sentence repeated inside a quote |
+
+**Reading:** correction fixes about three times as many errors as it adds, but the
+output is not yet correct. The 10 uncaught breakages each need a judgment about context.
+Dropping every flagged paragraph would avoid them, but it would cost 37% of the sample and
+most of the informal registers (68% of Wikinews was flagged).
+
+**Verification.** `corpus verify` asks a second LLM pass about each located error change.
+It shows the paragraph and, for each change, the sentence before and after it, and asks
+three questions:
+
+- Is the original a real mistake here?
+- Is the result correct English?
+- Does the change keep the meaning?
+
+A short reason comes first in each answer. A change is kept only when all three answers
+are yes. The others move to `rejected` with the reason. The output has the annotate
+format, so `correct` reads it unchanged. Running `verify` again with another model on that
+output checks the kept changes again, so only changes both models confirm remain.
+Scored against the hand review above (102 changes):
+
+| Changes kept | Real fix (31) | Optional (52) | Changes meaning (4) | Breaks the text (15) |
+| --- | ---: | ---: | ---: | ---: |
+| No verification (after the checks in `correct`) | 31 | 52 | 4 | 10 |
+| `qwen3-coder:30b` | 25 | 29 | 4 | 4 |
+| `qwen3:8b`, thinking on | 25 | 25 | 3 | 5 |
+| Both must confirm | 20 | 20 | 3 | 1 |
+
+`qwen3:8b` lost 12 changes to proxy timeouts (HTTP 504): 4 real fixes, 5 optional rewrites
+and 3 breakages. They are counted as not kept in the last two rows.
+
+- **`qwen3-coder:30b` alone:** the corrected sample keeps 62 changes. 4 of them (6%) still
+  break the text ("stoic" → "statuary", "each sub-shell … has" → "have", "all countries
+  … are" → "is", "from 1 to 27 April" → "on"), down from 10 of 92 (11%) without
+  verification. It keeps 25 of 31 real fixes. The six it rejects are three capitalised
+  county names, "Portuguese Language" → "language", "a wave" → "waves" and "hanger" →
+  "hangar", which it calls a spelling variant.
+  It also rejects 23 optional rewrites, which is fine: the original was already correct.
+  It does not catch meaning changes ("one or two" → "one or more"). On the sample it ran
+  at 60–170 paragraphs a minute, since only flagged paragraphs need a request.
+- **`qwen3:8b` with thinking:** no better, and about ten times slower (5–14 paragraphs a
+  minute). Its replies often outlast the proxy's timeout.
+- **Both models:** cuts breakages to 1, but also drops a third of the real fixes.
+
+**Recommendation:** verify with `qwen3-coder:30b`. Correction then fixes 25 errors for every 4
+it adds, and the rejected changes are kept for review. A second model is an option once
+the timeouts are handled (raise the proxy timeout or run the model without it).
+
+The first version of this step also wrote ERRANT-labeled records of the corrected errors.
+That was dropped, because only about a third of the changes were real errors. Building
+it found a bug, which is fixed: ERRANT can return a Missing edit and a replacement at the
+same word ("INRihab" → "IN Rehab"), and `revert_edits` undid them in the wrong order.
+
 ## Corpus sources (2026-10-24)
 
 The tagger's job is now errors made of real words, which depend on register, and

@@ -2,7 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from contcheck.cli.corpus import CorpusSource, article_source, build_corpus_app, merge, report
+from contcheck.cli.corpus import (
+    CorpusSource,
+    article_source,
+    build_corpus_app,
+    describe_llm,
+    llm_config,
+    merge,
+    report,
+)
 from contcheck.corpus.jsonl import read_jsonl, write_jsonl
 from contcheck.corpus.record import Record, RecordSource, Split
 
@@ -11,6 +19,9 @@ def test_corpus_app_has_fetch() -> None:
     app = build_corpus_app()
 
     assert "fetch" in app
+    assert "annotate" in app
+    assert "verify" in app
+    assert "correct" in app
     assert [s.value for s in CorpusSource] == [
         "wikipedia",
         "simple-wikipedia",
@@ -81,3 +92,43 @@ def make_record(doc_id: str, split: Split) -> Record:
         labels=("O", "O"),
         edits=(),
     )
+
+
+def test_llm_config_reads_the_key_from_the_named_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TEST_LLM_KEY", "secret")
+    options = {
+        "model": "m",
+        "base_url": "http://localhost:11434/v1",
+        "concurrency": 2,
+        "timeout": 5.0,
+        "retries": 1,
+        "reasoning_switch": True,
+    }
+
+    with_key = llm_config(api_key_env="TEST_LLM_KEY", **options)
+    without = llm_config(api_key_env="TEST_LLM_UNSET_KEY", **options)
+
+    assert with_key.api_key == "secret"
+    assert without.api_key is None
+    assert with_key.reasoning_switch is True
+    described = describe_llm(with_key, "TEST_LLM_KEY")
+    assert "secret" not in described
+    assert described == (
+        "m at http://localhost:11434/v1 (bearer token from $TEST_LLM_KEY), 2 in parallel"
+    )
+    assert "no API key" in describe_llm(without, "TEST_LLM_UNSET_KEY")
+
+
+def test_llm_config_needs_a_base_url() -> None:
+    with pytest.raises(SystemExit, match="--base-url"):
+        llm_config(
+            model="m",
+            base_url=None,
+            api_key_env="TEST_LLM_UNSET_KEY",
+            concurrency=1,
+            timeout=1.0,
+            retries=0,
+            reasoning_switch=False,
+        )

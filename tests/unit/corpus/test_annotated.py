@@ -5,6 +5,7 @@ from contcheck.corpus.annotated import (
     Change,
     ProposedChange,
     ProposedChanges,
+    RejectedChange,
     paragraph_hash,
 )
 from contcheck.taxonomy.kinds import Formality
@@ -40,6 +41,35 @@ def test_annotated_paragraph_round_trips_through_json() -> None:
         corrected="you ok",
         model="m",
         attempts=1,
+    )
+
+    assert AnnotatedParagraph.model_validate_json(paragraph.model_dump_json()) == paragraph
+
+
+def test_lines_from_before_verification_load_unverified() -> None:
+    line = (
+        '{"source_id": "s", "hash": "h", "text": "ok", "changes": [], "corrected": "ok",'
+        ' "model": "m", "attempts": 1}'
+    )
+
+    paragraph = AnnotatedParagraph.model_validate_json(line)
+
+    assert paragraph.verifier is None
+    assert paragraph.rejected == ()
+
+
+def test_verified_paragraph_keeps_its_rejected_changes() -> None:
+    hull = Change(start=4, end=8, original="hull", replacement="hall", type=Formality.ERROR)
+    paragraph = AnnotatedParagraph(
+        source_id="s",
+        hash=paragraph_hash("The hull held."),
+        text="The hull held.",
+        changes=(),
+        corrected="The hull held.",
+        model="m",
+        attempts=1,
+        verifier="v",
+        rejected=(RejectedChange(change=hull, reason="a ship has a hull"),),
     )
 
     assert AnnotatedParagraph.model_validate_json(paragraph.model_dump_json()) == paragraph

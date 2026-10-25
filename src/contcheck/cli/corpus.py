@@ -12,7 +12,9 @@ from cyclopts import App, Parameter
 
 from contcheck.cli.corrupt import RULE_KINDS
 from contcheck.corpus.annotate import ParagraphAnnotator, RunSettings, annotate_files
+from contcheck.corpus.annotated import AnnotatedParagraph
 from contcheck.corpus.cleanliness import CleanlinessConfig, CleanlinessFilter, CountingScreen
+from contcheck.corpus.correct import correct_files
 from contcheck.corpus.fetch import ParagraphFilter, fetch_paragraphs
 from contcheck.corpus.fineweb import FineWebEduArticles
 from contcheck.corpus.gutenberg import BookSelection, GutenbergArticles
@@ -20,9 +22,11 @@ from contcheck.corpus.hub import stream_query
 from contcheck.corpus.jsonl import read_jsonl, write_jsonl
 from contcheck.corpus.merge import merge_records
 from contcheck.corpus.protocols import ArticleSource
+from contcheck.corpus.readers import read_paragraphs
 from contcheck.corpus.record import Record
 from contcheck.corpus.report import build_report, format_report
 from contcheck.corpus.stackexchange import StackExchangeArticles
+from contcheck.corpus.verify import ChangeVerifier
 from contcheck.corpus.wikimedia import Wiki, WikimediaArticles
 from contcheck.corpus.wikinews import WikinewsArticles
 from contcheck.corpus.wikipedia import SIMPLE_SNAPSHOT, WikipediaArticles, stream_from_hub
@@ -156,21 +160,16 @@ def build_corpus_app() -> App:
             Send ``reasoning_effort: "none"`` to turn off thinking (Ollama with qwen3).
             Leave off for servers that reject the field.
         """
-        if base_url is None:
-            raise SystemExit(f"pass --base-url or set {BASE_URL_ENV}")
-        key = os.environ.get(api_key_env, "")
-        api_key = key if key else None
-        config = ClientConfig(
-            base_url=base_url,
+        config = llm_config(
             model=model,
-            api_key=api_key,
+            base_url=base_url,
+            api_key_env=api_key_env,
+            concurrency=concurrency,
             timeout=timeout,
             retries=retries,
-            concurrency=concurrency,
             reasoning_switch=reasoning_switch,
         )
-        auth = "no API key" if api_key is None else f"bearer token from ${api_key_env}"
-        print(f"annotating with {model} at {base_url} ({auth}), {concurrency} in parallel")
+        print(f"annotating with {describe_llm(config, api_key_env)}")
         with httpx.Client() as http:
             annotator = ParagraphAnnotator(
                 OpenAIChatClient(http, config), model=model, attempts=attempts
@@ -179,12 +178,135 @@ def build_corpus_app() -> App:
                 source,
                 out,
                 annotator.annotate,
+                read=read_paragraphs,
                 settings=RunSettings(concurrency=concurrency, limit=limit),
                 clock=time.monotonic,
                 log=print,
             )
 
+    @app.command
+    def verify(
+        *,
+        source: Annotated[Path, Parameter(name="--in")],
+        out: Path,
+        model: Annotated[str, Parameter(env_var=MODEL_ENV)] = DEFAULT_LLM_MODEL,
+        base_url: Annotated[str | None, Parameter(env_var=BASE_URL_ENV)] = None,
+        api_key_env: str = API_KEY_ENV,
+        concurrency: int = 4,
+        limit: int | None = None,
+        timeout: float = 120.0,
+        retries: int = 3,
+        attempts: int = 3,
+        reasoning_switch: bool = False,
+    ) -> None:
+        """Ask an LLM to check each error change ``corpus annotate`` proposed.
+
+        Writes the annotations to ``out/<input name>`` with only the confirmed changes
+        left in ``changes`` and the others in ``rejected``, ready for ``corpus correct
+        --in out``. Paragraphs without error changes are copied without a request.
+        Failures go to ``out/failed/``; rerunning resumes.
+
+        Parameters
+        ----------
+        source
+            Annotated JSONL file, or a folder of them (the ``annotate`` output).
+        out
+            Folder for the verified files.
+        model
+            Model name on the server.
+        base_url
+            OpenAI-compatible API root, such as ``http://localhost:11434/v1``.
+        api_key_env
+            Environment variable holding an API key, sent as a bearer token when set.
+        concurrency
+            Requests in flight at once; match the server's parallel slots.
+        limit
+            Most new paragraphs to verify, across all files.
+        timeout
+            Seconds to wait for one reply.
+        retries
+            Retries after a connection error, timeout, or a 429, 500, 502, 503 or 504 reply.
+        attempts
+            Tries per paragraph when the reply is not valid JSON or misses a change.
+        reasoning_switch
+            Send ``reasoning_effort: "none"`` to turn off thinking (Ollama with qwen3).
+            Leave off for servers that reject the field.
+        """
+        config = llm_config(
+            model=model,
+            base_url=base_url,
+            api_key_env=api_key_env,
+            concurrency=concurrency,
+            timeout=timeout,
+            retries=retries,
+            reasoning_switch=reasoning_switch,
+        )
+        print(f"verifying with {describe_llm(config, api_key_env)}")
+        with httpx.Client() as http:
+            verifier = ChangeVerifier(
+                OpenAIChatClient(http, config), model=model, attempts=attempts
+            )
+            annotate_files(
+                source,
+                out,
+                verifier.verify,
+                read=lambda path: read_jsonl(path, AnnotatedParagraph),
+                settings=RunSettings(concurrency=concurrency, limit=limit),
+                clock=time.monotonic,
+                log=print,
+            )
+
+    @app.command
+    def correct(*, source: Annotated[Path, Parameter(name="--in")], out: Path) -> None:
+        """Apply the error changes ``corpus annotate`` found, giving the corpus to corrupt.
+
+        Writes the corrected paragraphs to ``out/<input name>`` for ``corrupt --in out``;
+        informal uses stay as written. Paragraphs where a change doubles punctuation or
+        lowercases a sentence start go to ``out/dropped/`` and are left out.
+
+        Parameters
+        ----------
+        source
+            Annotated JSONL file, or a folder of them (the ``annotate`` output).
+        out
+            Folder for the corrected paragraph files.
+        """
+        tally = correct_files(source, out)
+        print(tally.summary())
+        print(f"wrote corrected paragraphs to {out}")
+
     return app
+
+
+def llm_config(
+    *,
+    model: str,
+    base_url: str | None,
+    api_key_env: str,
+    concurrency: int,
+    timeout: float,
+    retries: int,
+    reasoning_switch: bool,
+) -> ClientConfig:
+    """The client settings from command options; the key comes from ``api_key_env``."""
+    if base_url is None:
+        raise SystemExit(f"pass --base-url or set {BASE_URL_ENV}")
+    key = os.environ.get(api_key_env, "")
+    return ClientConfig(
+        base_url=base_url,
+        model=model,
+        api_key=key if key else None,
+        timeout=timeout,
+        retries=retries,
+        concurrency=concurrency,
+        reasoning_switch=reasoning_switch,
+    )
+
+
+def describe_llm(config: ClientConfig, api_key_env: str) -> str:
+    """Model, server and whether a key is used, for the start-up line; never the key."""
+    auth = "no API key" if config.api_key is None else f"bearer token from ${api_key_env}"
+    return f"{config.model} at {config.base_url} ({auth}), {config.concurrency} in parallel"
 
 
 def article_source(source: CorpusSource, *, seed: int) -> ArticleSource:
