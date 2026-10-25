@@ -84,6 +84,8 @@ class Record(BaseModel):
 def revert_edits(words: Sequence[str], edits: Sequence[EditRecord]) -> tuple[str, ...]:
     """Undo ``edits`` on noisy ``words``, giving back the clean words."""
     restored = list(words)
-    for edit in sorted(edits, key=lambda e: e.start, reverse=True):
+    # Right to left. A Missing edit's gap at ``i`` lies left of a replacement starting at
+    # ``i``, so the replacement goes first (ERRANT gives such pairs: "INRihab" -> "IN Rehab").
+    for edit in sorted(edits, key=lambda e: (e.start, e.end), reverse=True):
         restored[edit.start : edit.end] = edit.orig
     return tuple(restored)

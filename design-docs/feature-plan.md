@@ -124,9 +124,19 @@ all serve it) rather than Ollama's own. The default model is `qwen3-coder:30b`: 
 paragraphs across the seven sources it flagged 42% at about 60 paragraphs a minute (about
 28 hours per 100k), and 22 of 50 hand-checked changes were real fixes, against 7 of 50 for
 `qwen3:8b` (68% flagged) and none of 25 for `karen-the-editor-v2-strict` (99% flagged,
-free rewrites). Its flags still need filtering before they drop paragraphs. What the cleaning step does with the annotations
-(drop flagged paragraphs, use the corrected text, or label informal uses) is decided
-when F6's filter uses them.
+free rewrites).
+
+Corpus correction (`corpus`): the pipeline is corpus → corrected corpus → `corrupt`.
+`contcheck corpus correct` applies each paragraph's `error` changes. A rewrite is fine as
+long as the result is correct. `informal` changes stay as written, since informal edits are
+not labeled yet. The output is raw paragraphs that `corrupt` reads in place of
+`data/raw`. A paragraph is dropped when a change breaks the text in a way a check can see:
+doubled punctuation, or a sentence start put in lower case. Before that, `contcheck corpus
+verify` has a second LLM pass check each error change in its sentence. It keeps a change
+only when the original is a real mistake, the result is correct and the meaning is kept,
+and it records the rest as `rejected` with a reason. On a hand-reviewed 206-paragraph
+sample this cut changes that break correct text from 10 of 92 (11%) to 4 of 62 (6%),
+and 25 of 31 real fixes were kept (see the PoC plan, Corpus correction).
 
 The implementation plan puts Spelling, RealWord, VerbTense, SubjectVerbAgreement and
 Determiner first. Each corruptor feature builds its first-priority kind first, so a

@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TextIO, assert_never
+from typing import Protocol, TextIO, assert_never
 
 from pydantic import ValidationError
 
@@ -32,7 +32,6 @@ from contcheck.corpus.annotated import (
 )
 from contcheck.corpus.documents import RawParagraph
 from contcheck.corpus.jsonl import read_jsonl, write_jsonl
-from contcheck.corpus.readers import read_paragraphs
 from contcheck.llm.models import ChatOptions, LLMError
 from contcheck.llm.protocols import LLMClient
 
@@ -267,9 +266,9 @@ def _check(text: str, reply: str) -> Located | Invalid:
             assert_never(parsed)
 
 
-def annotate_concurrently(
-    paragraphs: Iterable[RawParagraph],
-    annotate: Callable[[RawParagraph], Outcome],
+def annotate_concurrently[P](
+    paragraphs: Iterable[P],
+    annotate: Callable[[P], Outcome],
     *,
     concurrency: int,
 ) -> Iterator[Outcome]:
@@ -391,18 +390,30 @@ class RunSettings:
     log_every: int = 25
 
 
-def annotate_files(
+class SourceText(Protocol):
+    """What resuming needs from an input line: its source and its paragraph text."""
+
+    @property
+    def source_id(self) -> str: ...
+
+    @property
+    def text(self) -> str: ...
+
+
+def annotate_files[P: SourceText](
     source: Path,
     out_dir: Path,
-    annotate: Callable[[RawParagraph], Outcome],
+    annotate: Callable[[P], Outcome],
     *,
+    read: Callable[[Path], Iterable[P]],
     settings: RunSettings,
     clock: Callable[[], float],
     log: Callable[[str], None],
 ) -> list[Tally]:
-    """Annotate every paragraph of ``source`` (a JSONL file or a folder of them).
+    """Run ``annotate`` on every paragraph of ``source`` (a JSONL file or a folder of them).
 
-    Each input file appends to ``out_dir/<name>``; failures go to
+    ``read`` parses one input file: raw paragraphs for ``corpus annotate``, annotated ones
+    for ``corpus verify``. Each input file appends to ``out_dir/<name>``; failures go to
     ``out_dir/failed/<name>`` and are retried on the next run, which also drops their old
     entries. Paragraphs whose source and text are already in the output (or earlier in
     this run) are skipped. ``settings.limit`` caps new paragraphs across all files.
@@ -415,7 +426,7 @@ def annotate_files(
         out = out_dir / file.name
         out.parent.mkdir(parents=True, exist_ok=True)
         done = done_keys(out)
-        paragraphs = list(read_paragraphs(file))
+        paragraphs = list(read(file))
         tally = Tally(total=len(paragraphs))
         todo = _new_paragraphs(paragraphs, set(done), tally)
         if budget is not None:
@@ -437,10 +448,10 @@ def annotate_files(
     return tallies
 
 
-def _new_paragraphs(
-    paragraphs: Sequence[RawParagraph], seen: set[ParagraphKey], tally: Tally
-) -> list[RawParagraph]:
-    todo: list[RawParagraph] = []
+def _new_paragraphs[P: SourceText](
+    paragraphs: Sequence[P], seen: set[ParagraphKey], tally: Tally
+) -> list[P]:
+    todo: list[P] = []
     for paragraph in paragraphs:
         key = paragraph_key(paragraph.source_id, paragraph.text)
         if key in seen:

@@ -50,11 +50,22 @@ class Change(BaseModel):
     type: Formality
 
 
+class RejectedChange(BaseModel):
+    """A proposed error change that a second model did not confirm, and why."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    change: Change
+    reason: str
+
+
 class AnnotatedParagraph(BaseModel):
     """One output line: a paragraph, the changes a model would make, and the result.
 
     ``corrected`` is ``text`` with every change applied; it equals ``text`` when
-    ``changes`` is empty.
+    ``changes`` is empty. After ``corpus verify``, ``changes`` holds only the changes the
+    ``verifier`` model confirmed (and informal ones, which it does not check), and
+    ``rejected`` the rest. Lines written before verification existed load unverified.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -66,6 +77,10 @@ class AnnotatedParagraph(BaseModel):
     corrected: str
     model: str
     attempts: int = Field(ge=1)
+    verifier: str | None = None
+    """The models that checked the error changes, comma-separated in the order they ran;
+    ``None`` when the changes were not checked."""
+    rejected: tuple[RejectedChange, ...] = ()
 
 
 class FailureReason(StrEnum):
@@ -80,6 +95,8 @@ class FailureReason(StrEnum):
     AMBIGUOUS = "ambiguous"
     """A change's ``original`` occurs more often than changes quote it, so which one is
     meant is unknown."""
+    INCOMPLETE = "incomplete"
+    """The verdicts do not cover every change exactly once."""
 
 
 class FailedParagraph(BaseModel):

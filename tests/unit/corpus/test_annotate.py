@@ -37,6 +37,7 @@ from contcheck.corpus.annotated import (
 )
 from contcheck.corpus.documents import RawParagraph
 from contcheck.corpus.jsonl import read_jsonl, write_jsonl
+from contcheck.corpus.readers import read_paragraphs
 from contcheck.llm.models import LLMError
 from contcheck.taxonomy.kinds import Formality
 from tests.conftest import FakeLLMClient
@@ -358,8 +359,12 @@ def test_annotate_files_writes_skips_resumes_and_logs_failures(tmp_path: Path) -
         return clean(paragraph)
 
     settings = RunSettings(concurrency=2, limit=None, log_every=2)
-    first = annotate_files(raw, out, annotate, settings=settings, clock=Clock(), log=lines.append)
-    second = annotate_files(raw, out, annotate, settings=settings, clock=Clock(), log=lines.append)
+    first = annotate_files(
+        raw, out, annotate, read=read_paragraphs, settings=settings, clock=Clock(), log=lines.append
+    )
+    second = annotate_files(
+        raw, out, annotate, read=read_paragraphs, settings=settings, clock=Clock(), log=lines.append
+    )
 
     annotated = [p.text for p in read_jsonl(out / "a.jsonl", AnnotatedParagraph)]
     assert annotated == ["One.", "Two."]
@@ -378,7 +383,13 @@ def test_annotate_files_stops_at_the_limit(tmp_path: Path) -> None:
     out = tmp_path / "out"
 
     tallies = annotate_files(
-        raw, out, clean, settings=RunSettings(limit=1), clock=Clock(), log=lambda _: None
+        raw,
+        out,
+        clean,
+        read=read_paragraphs,
+        settings=RunSettings(limit=1),
+        clock=Clock(),
+        log=lambda _: None,
     )
 
     assert [t.annotated for t in tallies] == [1]
@@ -396,7 +407,15 @@ def test_the_same_text_under_two_sources_is_annotated_for_each(tmp_path: Path) -
     )
     out = tmp_path / "out"
 
-    annotate_files(raw, out, clean, settings=RunSettings(), clock=Clock(), log=lambda _: None)
+    annotate_files(
+        raw,
+        out,
+        clean,
+        read=read_paragraphs,
+        settings=RunSettings(),
+        clock=Clock(),
+        log=lambda _: None,
+    )
 
     sources = [p.source_id for p in read_jsonl(out / "a.jsonl", AnnotatedParagraph)]
     assert sources == ["doc1", "doc2"]
