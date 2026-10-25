@@ -34,6 +34,7 @@ AMERICAN_TO_BRITISH = (
     (re.compile(r"ense(s)?$"), r"ence\1"),
     (re.compile(r"og(s)?$"), r"ogue\1"),
     (re.compile(r"^sk(ep)"), r"sc\1"),
+    (re.compile(r"^mom(s)?$"), r"mum\1"),
 )
 """American spellings missing from the bundled list, rewritten to the British form it has."""
 

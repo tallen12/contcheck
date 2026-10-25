@@ -256,6 +256,9 @@ every JSONL file in the directory, so each source's `--limit` sets the mix.
 | `wikinews` | [`Fumika/Wikinews-multilingual`](https://huggingface.co/datasets/Fumika/Wikinews-multilingual) | CC BY 2.5 | yes (one 45 MB JSONL) | 5,240 English articles with paragraphs as clean lists; only `lang == "en"` rows are used |
 | `wikibooks`, `wikivoyage` | [`common-pile/wikimedia`](https://huggingface.co/datasets/common-pile/wikimedia) (`*_wikibooks.com.jsonl.gz`, `*_wikivoyage.com.jsonl.gz`) | CC BY-SA 4.0 per row | yes | Main namespace only. The wikitext conversion drops links and templates and leaves gaps (`the  of Brazil,,`); lines with such gaps are dropped |
 | `stackexchange` | [`HuggingFaceH4/stack-exchange-preferences`](https://huggingface.co/datasets/HuggingFaceH4/stack-exchange-preferences), one `data/<site>.stackexchange.com` directory per site | CC BY-SA 4.0 | yes | Answers as HTML with `pm_score = round(log2(1 + upvotes))`, +1 if accepted. Answers with `pm_score ≥ 4` (about 10 upvotes) from 25 prose-heavy sites, taken site by site; `english` and `ell` are left out because they quote wrong sentences on purpose |
+| `tinystories` (optional) | [`noanabeshima/TinyStoriesV2`](https://huggingface.co/datasets/noanabeshima/TinyStoriesV2) (`TinyStoriesV2-GPT4-train.jsonl`) | CDLA-Sharing 1.0 | yes (one 2.2 GB JSONL) | Short children's stories written by GPT-4: the V2 stories of [`roneneldan/TinyStories`](https://huggingface.co/datasets/roneneldan/TinyStories), one story per row and one paragraph per line. The original's parquet files hold V1, which mixes in GPT-3.5 stories with more errors. Rows have no id, so a story's id is a hash of its text. Simple vocabulary and syntax, much dialogue; not in the mix yet |
+| `simplestories` (optional) | [`SimpleStories/SimpleStories`](https://huggingface.co/datasets/SimpleStories/SimpleStories) | MIT | yes (7 parquet shards) | 2.1M short stories by gpt-4o-mini, each generated for a topic, theme, style, persona and grammar feature, which the rows record. More varied wording than TinyStories (type/token 0.11 against 0.08 on 20k words) and the most dialogue of any source (48% of paragraphs); id is the row's `generation_id`. Not in the mix yet |
+| `cosmopedia-stories` (optional) | [`HuggingFaceTB/cosmopedia`](https://huggingface.co/datasets/HuggingFaceTB/cosmopedia) `stories` | Apache 2.0 | yes | About 5M stories by Mixtral-8x7B for audiences from young children to adults; vocabulary as varied as the human sources (type/token 0.24) and the most first person (47% of paragraphs). Rows have no id, so a story's id is a hash of its text. Not in the mix yet |
 
 Skipped: the Common Pile Wikinews files (the same lossy conversion drops most link text
 in news, for example "the of the People's Republic of China had lunch today with the of
@@ -266,7 +269,12 @@ without a separate catalogue download), [`deepmind/pg19`](https://huggingface.co
 [`common-pile/stackexchange`](https://huggingface.co/datasets/common-pile/stackexchange)
 (no vote scores, and questions, answers and comments are joined into one text) and
 [`flax-sentence-embeddings/stackexchange_titlebody_best_voted_answer_jsonl`](https://huggingface.co/datasets/flax-sentence-embeddings/stackexchange_titlebody_best_voted_answer_jsonl)
-(CC BY-NC-SA).
+(CC BY-NC-SA). The other Cosmopedia subsets were sampled (1,500 rows each) and left out:
+`web_samples_v2`, `stanford` and `openstax` rewrite web and textbook text that FineWeb-Edu and
+Wikipedia already cover (15–25% of paragraphs rejected, openstax with LaTeX markup), and
+`wikihow` loses 40% of its paragraphs to lists and markdown; it is the only instructional
+register on offer, so it is worth a cleanup step of its own later. The generated sources
+carry an LLM style ("bustling", "delve"); that does not matter for a grammar tagger.
 
 **Cleanup per source.** Gutenberg: in this dataset a single line break ends a paragraph and
 a doubled one is a hard wrap, so wraps are joined; Gutenberg start/end markers, chapter and
@@ -283,7 +291,8 @@ paragraphs with list syntax, markup (HTML tags, wiki braces, URLs, entities, `|`
 `*`, underscores), more than 25% words in capitals, a sentence over 70 words, or more than
 3% unknown words among lowercase alphabetic words of three or more letters. The bundled
 SymSpell list is British-leaning, so an American spelling counts as known when its British
-form is (neighborhood, theater, traveled, aluminum). `--max-non-word-share` and
+form is (neighborhood, theater, traveled, aluminum, mom). Without the `mom` rule TinyStories
+lost 10.7% of its paragraphs, nearly all for that one word. `--max-non-word-share` and
 `--max-sentence-words` change the thresholds, and `fetch` prints how many paragraphs each
 check dropped. Share of shape-filtered paragraphs each source loses, on a sample of about
 600 paragraphs per source (seed 13):
@@ -298,6 +307,9 @@ check dropped. Share of shape-filtered paragraphs each source loses, on a sample
 | wikivoyage | 862 | 34.9% | 45 | 254 | 0 | 2 |
 | wikibooks | 1,183 | 49.5% | 151 | 359 | 70 | 5 |
 | stackexchange | 585 | 9.2% | 35 | 5 | 9 | 5 |
+| tinystories | 606 | 0.3% | 2 | 0 | 0 | 0 |
+| simplestories | 612 | 1.0% | 6 | 0 | 0 | 0 |
+| cosmopedia-stories | 644 | 6.5% | 27 | 7 | 8 | 0 |
 
 The non-word check removes what it should: eye dialect in Gutenberg ("knowd", "nawthin",
 "gittin"), non-English passages in Wikibooks and Wikivoyage, and real typos ("tryed",

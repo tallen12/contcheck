@@ -20,6 +20,9 @@ def test_corpus_app_has_fetch() -> None:
         "wikibooks",
         "wikivoyage",
         "stackexchange",
+        "tinystories",
+        "simplestories",
+        "cosmopedia-stories",
     ]
 
 
