@@ -1,12 +1,22 @@
 import random
 from pathlib import Path
 
+import pytest
+
 from contcheck.analysis.protocols import Inflector, TextAnalyzer
 from contcheck.corpus.record import Record
 from contcheck.corrupt.protocols import Rng
+from contcheck.llm.models import ChatMessage, ChatOptions, LLMError, Role
+from contcheck.llm.protocols import LLMClient
 from contcheck.model.checkpoint import load_checkpoint
 from contcheck.spelling.protocols import Dictionary
-from tests.conftest import FakeAnalyzer, FakeDictionary, FakeInflector, edit_distance
+from tests.conftest import (
+    FakeAnalyzer,
+    FakeDictionary,
+    FakeInflector,
+    FakeLLMClient,
+    edit_distance,
+)
 
 
 def test_fakes_implement_their_protocols(
@@ -79,3 +89,19 @@ def test_checkpoint_fixture_loads(checkpoint: Path) -> None:
 
     assert loaded.info.window == 16
     assert loaded.tokenizer.encode_words(["go"]).input_ids == (6,)
+
+
+def test_fake_llm_client_replays_its_script_and_records_requests() -> None:
+    fake = FakeLLMClient(["first", LLMError("down"), "last"])
+    client: LLMClient = fake
+    messages = [ChatMessage(Role.USER, "hi")]
+
+    first = client.complete(messages, options=ChatOptions())
+    with pytest.raises(LLMError):
+        client.complete(messages, options=ChatOptions())
+    last = [client.complete(messages, options=ChatOptions()) for _ in range(2)]
+
+    assert first == "first"
+    assert last == ["last", "last"]
+    assert len(fake.requests) == 4
+    assert fake.requests[0][0] == (ChatMessage(Role.USER, "hi"),)
