@@ -133,6 +133,42 @@ Measured on the dev machine with `configs/gen.yaml` and `configs/train.yaml` as 
   example above (`go`, `buyed`, `there`), and flagged nothing in any corrected version. It
   also made one extra flag, Determiner at 0.53 on a correct word in the VerbTense sentence.
 
+## Second run: realistic misspellings (2026-10-24)
+
+The first model missed plain misspellings such as "libary" and "tomorow". Probing showed
+two causes. Real misspellings follow sound and word structure and split into
+normal-looking subwords (`occur ##ed`), while the corruptor's keyboard slips split into
+junk. And because errors were never on neighbouring words, adjacent typos suppressed each
+other. The Spelling corruptor gained realistic patterns, `adjacent_share: 0.1` put some
+errors side by side, and `evaluate` gained a check that swaps 96 common real misspellings
+into val text (1,132 probes, never next to a labeled error).
+
+Both models on the first run's val set (same text):
+
+| Measure | First run | Second run |
+| --- | --- | --- |
+| Overall span F0.5 | 0.829 | 0.815 |
+| Spelling F0.5 | 0.884 | 0.879 |
+| False alarms per 1,000 clean words | 4.42 | 5.06 |
+| Real misspellings flagged, in val text | 0.623 | 0.681 |
+| Real misspellings flagged, one fixed sentence | 0.34 | 0.32 |
+| Typo caught when the next word also has one | 0.917 | 0.936 |
+| That neighbouring typo caught | 0.827 | 0.858 |
+
+The SymSpell baseline flags every probe, because each listed misspelling is a non-word
+for it.
+
+**Reading:** the patterns helped only a little (+6 points in context, nothing in a
+neutral sentence), and they cost some precision. The tagger still misses "libary" and
+"tomorow" in "Their going too the libary tomorow and he dont like it." The model has no
+dictionary, so it cannot tell a plausible misspelling from a rare correct word, and
+better synthetic typos do not close that gap. The likely fix is to give it the
+dictionary's answer: a SymSpell non-word flag per word as a model input, so the model
+learns when to trust it. That makes the planned M6 rule, which drops SymSpell flags the
+model rates as confident `O`, wrong as written: it would discard exactly these misses.
+The first run's model and data are kept locally as `runs/baseline-v1` and
+`data/synthetic-v1`.
+
 ## Decisions
 
 | Decision | Assumption |
