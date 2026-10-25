@@ -48,6 +48,15 @@ def test_fetch_caps_paragraphs_per_article(articles: FakeArticleSource) -> None:
     assert [p.source_id for p in fetched] == ["w-2", "w-2", "w-3", "w-3"]
 
 
+def test_fetch_skips_articles_whose_id_was_used() -> None:
+    article = Article(id="7", title="", text=f"{PROSE}\n\n{PROSE}")
+    source = FakeArticleSource([article, article])
+
+    fetched = fetch_paragraphs(source, prefix="w", limit=10, paragraph_filter=ParagraphFilter())
+
+    assert [p.source_id for p in fetched] == ["w-7", "w-7"]
+
+
 class RejectShort:
     """A screen that rejects paragraphs starting with ``Short``."""
 

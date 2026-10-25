@@ -112,6 +112,8 @@ def test_counting_screen_summary_with_nothing_screened() -> None:
         ("aluminum", "aluminium"),
         ("sulfide", "sulphide"),
         ("distill", "distil"),
+        ("mom", "mum"),
+        ("moms", "mums"),
     ],
 )
 def test_american_spellings_have_a_british_form(word: str, british: str) -> None:

@@ -13,6 +13,7 @@ from cyclopts import App, Parameter
 from contcheck.cli.corrupt import RULE_KINDS
 from contcheck.corpus.annotate import ParagraphAnnotator, RunSettings, annotate_files
 from contcheck.corpus.cleanliness import CleanlinessConfig, CleanlinessFilter, CountingScreen
+from contcheck.corpus.cosmopedia import CosmopediaStories
 from contcheck.corpus.fetch import ParagraphFilter, fetch_paragraphs
 from contcheck.corpus.fineweb import FineWebEduArticles
 from contcheck.corpus.gutenberg import BookSelection, GutenbergArticles
@@ -22,7 +23,9 @@ from contcheck.corpus.merge import merge_records
 from contcheck.corpus.protocols import ArticleSource
 from contcheck.corpus.record import Record
 from contcheck.corpus.report import build_report, format_report
+from contcheck.corpus.simplestories import SimpleStoriesArticles
 from contcheck.corpus.stackexchange import StackExchangeArticles
+from contcheck.corpus.tinystories import TinyStoriesArticles
 from contcheck.corpus.wikimedia import Wiki, WikimediaArticles
 from contcheck.corpus.wikinews import WikinewsArticles
 from contcheck.corpus.wikipedia import SIMPLE_SNAPSHOT, WikipediaArticles, stream_from_hub
@@ -48,6 +51,9 @@ class CorpusSource(StrEnum):
     WIKIBOOKS = "wikibooks"
     WIKIVOYAGE = "wikivoyage"
     STACKEXCHANGE = "stackexchange"
+    TINYSTORIES = "tinystories"
+    SIMPLESTORIES = "simplestories"
+    COSMOPEDIA_STORIES = "cosmopedia-stories"
 
 
 def build_corpus_app() -> App:
@@ -206,6 +212,12 @@ def article_source(source: CorpusSource, *, seed: int) -> ArticleSource:
             return WikimediaArticles(stream_query, seed=seed, wiki=Wiki.WIKIVOYAGE)
         case CorpusSource.STACKEXCHANGE:
             return StackExchangeArticles(stream_query, seed=seed)
+        case CorpusSource.TINYSTORIES:
+            return TinyStoriesArticles(stream_query, seed=seed)
+        case CorpusSource.SIMPLESTORIES:
+            return SimpleStoriesArticles(stream_query, seed=seed)
+        case CorpusSource.COSMOPEDIA_STORIES:
+            return CosmopediaStories(stream_query, seed=seed)
         case _:
             assert_never(source)
 
