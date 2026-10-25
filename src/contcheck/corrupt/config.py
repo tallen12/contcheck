@@ -25,6 +25,11 @@ class GenConfig(BaseModel):
     """Share of paragraphs with two or more errors whose errors sit on neighbouring words."""
     held_out_confusion_share: float = Field(default=0.0, ge=0, lt=1)
     """Share of confusion pairs withheld from training for the held-out check."""
+    word_choice_share: float = Field(default=0.0, ge=0, le=1)
+    """Share of RealWord edits asked of the masked-LM word-choice corruptor instead of the
+    confusion sets; 0 never loads the masked LM."""
+    word_choice_model: str = "distilroberta-base"
+    """Hugging Face masked LM (RoBERTa tokenizer) that proposes and judges word choices."""
 
     @field_validator("errors_per_paragraph")
     @classmethod
