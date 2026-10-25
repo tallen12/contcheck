@@ -10,8 +10,11 @@ from contcheck.corpus.jsonl import write_jsonl
 from contcheck.corpus.readers import read_paragraphs
 from contcheck.corrupt.agreement import AgreementCorruptor
 from contcheck.corrupt.config import load_gen_config
+from contcheck.corrupt.conjunction import ConjunctionCorruptor
 from contcheck.corrupt.determiner import DeterminerCorruptor
 from contcheck.corrupt.generate import generate_records
+from contcheck.corrupt.preposition import PrepositionCorruptor
+from contcheck.corrupt.pronoun import PronounCorruptor
 from contcheck.corrupt.real_word import RealWordCorruptor, load_confusion_sets
 from contcheck.corrupt.registry import CorruptorRegistry
 from contcheck.corrupt.spelling import SpellingCorruptor
@@ -29,6 +32,9 @@ def build_registry() -> CorruptorRegistry:
             DeterminerCorruptor(),
             VerbTenseCorruptor(inflector),
             AgreementCorruptor(inflector),
+            PrepositionCorruptor(),
+            ConjunctionCorruptor(),
+            PronounCorruptor(),
         ]
     )
 

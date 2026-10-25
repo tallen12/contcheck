@@ -8,5 +8,8 @@ def test_registry_has_the_proof_of_concept_kinds() -> None:
         ErrorKind.REAL_WORD,
         ErrorKind.SUBJECT_VERB_AGREEMENT,
         ErrorKind.VERB_TENSE,
+        ErrorKind.PRONOUN_FORM,
         ErrorKind.DETERMINER,
+        ErrorKind.PREPOSITION,
+        ErrorKind.CONJUNCTION,
     )
