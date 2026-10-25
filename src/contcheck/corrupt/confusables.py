@@ -138,6 +138,23 @@ class ConfusionMap:
         """Every confusable pair, without direction."""
         return frozenset(confusion.pair for confusion in self)
 
+    def as_sets(self) -> dict[str, tuple[str, ...]]:
+        """Each word with its alternatives, heaviest first, without weights."""
+        return {
+            word: tuple(confusion.alternative for confusion in group)
+            for word, group in self.by_word.items()
+        }
+
+    def restrict(self, confusions: Mapping[str, Sequence[str]]) -> ConfusionMap:
+        """Only the directed confusions listed in ``confusions``, keeping their weights.
+
+        The inverse of ``as_sets`` after a split: ``restrict(split.train)``.
+        """
+        allowed = {
+            (word.lower(), other.lower()) for word, others in confusions.items() for other in others
+        }
+        return self.filter(lambda c: (c.word, c.alternative) in allowed)
+
     def filter(self, keep: Callable[[Confusion], bool]) -> ConfusionMap:
         """Only the confusions ``keep`` accepts, such as those outside a held-out split."""
         return ConfusionMap.of(confusion for confusion in self if keep(confusion))

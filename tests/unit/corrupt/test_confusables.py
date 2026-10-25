@@ -139,6 +139,19 @@ def test_filter_drops_both_directions_of_a_pair(words: FakeDictionary) -> None:
     assert {c.alternative for c in kept.alternatives("To")} == {"two"}
 
 
+def test_sets_round_trip_through_restrict(words: FakeDictionary) -> None:
+    confusions = build(words)
+    sets = confusions.as_sets()
+    train = {word: others for word, others in sets.items() if word != "farm"}
+
+    restricted = confusions.restrict(train)
+
+    assert sets["to"] == ("too", "two")
+    assert confusions.restrict(sets) == confusions
+    assert restricted.alternatives("farm") == ()
+    assert restricted.alternatives("form") == confusions.alternatives("form")
+
+
 def test_map_groups_heaviest_first() -> None:
     confusions = ConfusionMap.of(
         [
