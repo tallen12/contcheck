@@ -17,8 +17,11 @@ def test_registry_has_the_proof_of_concept_kinds() -> None:
     assert build_registry(confusion_split(config(0.0)).train).kinds() == (
         ErrorKind.SPELLING,
         ErrorKind.REAL_WORD,
+        ErrorKind.NOUN_NUMBER,
         ErrorKind.SUBJECT_VERB_AGREEMENT,
         ErrorKind.VERB_TENSE,
+        ErrorKind.VERB_FORM,
+        ErrorKind.ADJECTIVE_ADVERB,
         ErrorKind.PRONOUN_FORM,
         ErrorKind.DETERMINER,
         ErrorKind.PREPOSITION,

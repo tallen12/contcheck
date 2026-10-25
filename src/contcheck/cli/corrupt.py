@@ -5,21 +5,25 @@ from itertools import islice
 from pathlib import Path
 
 from contcheck.analysis.lemminflect_inflector import LemmInflector
+from contcheck.analysis.lemminflect_lexicon import LemmLexicon
 from contcheck.analysis.spacy_analyzer import load_spacy_analyzer
 from contcheck.corpus.documents import SplitShares, group_documents
 from contcheck.corpus.jsonl import write_jsonl
 from contcheck.corpus.readers import read_paragraphs
+from contcheck.corrupt.adjective_adverb import AdjectiveAdverbCorruptor
 from contcheck.corrupt.agreement import AgreementCorruptor
 from contcheck.corrupt.config import GenConfig, load_gen_config
 from contcheck.corrupt.conjunction import ConjunctionCorruptor
 from contcheck.corrupt.determiner import DeterminerCorruptor
 from contcheck.corrupt.generate import generate_records
 from contcheck.corrupt.holdout import ConfusionSplit, split_confusions
+from contcheck.corrupt.noun_number import NounNumberCorruptor
 from contcheck.corrupt.preposition import PrepositionCorruptor
 from contcheck.corrupt.pronoun import PronounCorruptor
 from contcheck.corrupt.real_word import RealWordCorruptor, load_confusion_sets
 from contcheck.corrupt.registry import CorruptorRegistry
 from contcheck.corrupt.spelling import SpellingCorruptor
+from contcheck.corrupt.verb_form import VerbFormCorruptor
 from contcheck.corrupt.verb_tense import VerbTenseCorruptor
 from contcheck.spelling.symspell_dictionary import load_symspell_dictionary
 from contcheck.taxonomy.kinds import ErrorKind
@@ -35,6 +39,9 @@ RULE_KINDS: tuple[ErrorKind, ...] = tuple(
         PrepositionCorruptor,
         ConjunctionCorruptor,
         PronounCorruptor,
+        VerbFormCorruptor,
+        NounNumberCorruptor,
+        AdjectiveAdverbCorruptor,
     )
 )
 """The kinds :func:`build_registry` has corruptors for, known without loading adapters."""
@@ -63,6 +70,9 @@ def build_registry(confusions: Mapping[str, tuple[str, ...]]) -> CorruptorRegist
             PrepositionCorruptor(),
             ConjunctionCorruptor(),
             PronounCorruptor(),
+            VerbFormCorruptor(inflector),
+            NounNumberCorruptor(inflector),
+            AdjectiveAdverbCorruptor(LemmLexicon()),
         ]
     )
 
