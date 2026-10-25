@@ -320,13 +320,23 @@ def test_adjacent_mode_falls_back_to_separate_edits(
     assert [(e.start, e.end) for e in edits] == [(2, 3), (6, 7)]
 
 
-def test_formality_is_carried_into_the_record(analyzer: FakeAnalyzer) -> None:
+def test_error_formality_is_carried_into_the_record(analyzer: FakeAnalyzer) -> None:
+    ctx = context(analyzer, "we walk home quickly")
+    edit = Edit(3, 4, ErrorKind.ADJECTIVE_ADVERB, R, ("quickly",), ("quick",))
+
+    result = apply_edits(ctx, [edit])
+
+    assert result.edits[0].formality is Formality.ERROR
+    assert result.labels[3] == "B-AdjectiveAdverb"
+
+
+def test_informal_edits_are_refused_until_their_labeling_is_decided(
+    analyzer: FakeAnalyzer,
+) -> None:
     ctx = context(analyzer, "we walk home quickly")
     informal = Edit(
         3, 4, ErrorKind.ADJECTIVE_ADVERB, R, ("quickly",), ("quick",), Formality.INFORMAL
     )
 
-    result = apply_edits(ctx, [informal])
-
-    assert result.edits[0].formality is Formality.INFORMAL
-    assert result.labels[3] == "B-AdjectiveAdverb"
+    with pytest.raises(ValueError, match="informal"):
+        apply_edits(ctx, [informal])

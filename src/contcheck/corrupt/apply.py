@@ -16,7 +16,7 @@ from contcheck.corrupt.edit import Edit
 from contcheck.corrupt.protocols import Rng
 from contcheck.corrupt.registry import CorruptorRegistry
 from contcheck.taxonomy.bio import WordSpan, missing_anchor, spans_to_labels
-from contcheck.taxonomy.kinds import ErrorKind, Operation
+from contcheck.taxonomy.kinds import ErrorKind, Formality, Operation
 
 ATTEMPTS_PER_ERROR = 4
 """How often to ask for another edit when one clashes with those already chosen."""
@@ -92,7 +92,14 @@ def apply_edits(context: CorruptionContext, edits: Sequence[Edit]) -> Corrupted:
     whose point is the casing) and its trailing space. Deleting words hands their final
     trailing space to the word before. A Missing error is labeled on the word after the
     gap, or the word before it at the end.
+
+    Raises ``ValueError`` for an informal edit: its labels would teach the model that the
+    construction is an error, while the same construction in the clean corpus stays
+    unlabeled. How informal edits are labeled and scored is still open (see the
+    implementation plan), so none may be generated until that is decided.
     """
+    if any(edit.formality is Formality.INFORMAL for edit in edits):
+        raise ValueError("informal edits are not labeled yet; see the implementation plan")
     ordered = sorted(edits, key=lambda e: e.start)
     for i, edit in enumerate(ordered):
         if clashes(edit, ordered[:i], allow_touching=True):

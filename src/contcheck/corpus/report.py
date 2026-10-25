@@ -8,7 +8,7 @@ from contcheck.corpus.record import Record, Split, revert_edits
 from contcheck.taxonomy.kinds import ErrorKind, Formality
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class Report:
     """Counts per split, per kind and per number of errors in a paragraph."""
 
@@ -45,7 +45,15 @@ def build_report(records: Iterable[Record]) -> Report:
         informal += sum(edit.formality is Formality.INFORMAL for edit in record.edits)
         errors[len(record.edits)] += 1
         failures += not round_trips(record)
-    return Report(count, dict(splits), dict(kinds), dict(errors), words, failures, informal)
+    return Report(
+        records=count,
+        splits=dict(splits),
+        kinds=dict(kinds),
+        errors_per_paragraph=dict(errors),
+        words=words,
+        round_trip_failures=failures,
+        informal_edits=informal,
+    )
 
 
 def _share(part: float, whole: float) -> str:
