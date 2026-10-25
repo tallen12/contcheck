@@ -16,6 +16,10 @@ from contcheck.taxonomy.labels import LABEL2ID, LABELS, OUTSIDE
 
 type FloatArray = npt.NDArray[np.float32]
 
+DEFAULT_THRESHOLD = 0.5
+"""Minimum span probability to report, shared by ``tag`` and evaluation so scores
+describe what users see."""
+
 
 def softmax(logits: FloatArray) -> FloatArray:
     """Probabilities over the last axis."""

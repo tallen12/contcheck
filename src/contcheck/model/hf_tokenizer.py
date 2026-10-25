@@ -18,16 +18,23 @@ class HuggingFaceTokenizer:
         self.cls_id = _token_id(tokenizer.cls_token_id, "CLS")
         self.sep_id = _token_id(tokenizer.sep_token_id, "SEP")
         self.pad_id = _token_id(tokenizer.pad_token_id, "PAD")
+        self._unk_id = _token_id(tokenizer.unk_token_id, "UNK")
 
     def encode_words(self, words: Sequence[str]) -> Encoding:
+        """Subwords of ``words``; a word the normalizer strips to nothing (a zero-width
+        space, a control character) becomes the unknown token, so its label has a place."""
         encoded = self._tokenizer(list(words), is_split_into_words=True, add_special_tokens=False)
-        input_ids: list[int] = []
-        word_ids: list[int] = []
+        pieces: list[list[int]] = [[] for _ in words]
         for token_id, word_id in zip(encoded["input_ids"], encoded.word_ids(), strict=True):
             if word_id is None:
                 raise ValueError("unexpected special token in a word encoding")
-            input_ids.append(int(token_id))
-            word_ids.append(word_id)
+            pieces[word_id].append(int(token_id))
+        input_ids: list[int] = []
+        word_ids: list[int] = []
+        for word_id, word_pieces in enumerate(pieces):
+            for token_id in word_pieces or [self._unk_id]:
+                input_ids.append(token_id)
+                word_ids.append(word_id)
         return Encoding(tuple(input_ids), tuple(word_ids))
 
     def save(self, directory: Path) -> None:

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -24,4 +25,8 @@ def test_train_saves_a_loadable_checkpoint(tmp_path: Path) -> None:
 
     loaded = load_checkpoint(tmp_path / "run")
     assert loaded.info.epoch == 1
-    assert (tmp_path / "run" / "history.jsonl").read_text(encoding="utf-8").count("\n") == 1
+    (line,) = (tmp_path / "run" / "history.jsonl").read_text(encoding="utf-8").splitlines()
+    report = json.loads(line)
+    assert report["epoch"] == 1
+    assert report["train_loss"] > 0
+    assert report["val"]["name"] == "epoch-1"

@@ -4,7 +4,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from contcheck.corpus.record import Record
-from contcheck.infer.decode import decode
+from contcheck.infer.decode import DEFAULT_THRESHOLD, decode
 from contcheck.infer.predict import predict_paragraphs
 from contcheck.model.protocols import Tagger, Tokenizer
 from contcheck.spelling.protocols import Dictionary
@@ -26,6 +26,7 @@ def evaluate_tagger(
     name: str,
     dataset: str,
     thresholds: Mapping[ErrorKind, float] | None = None,
+    default_threshold: float = DEFAULT_THRESHOLD,
     checks: Mapping[CheckName, ProbeSet] | None = None,
 ) -> EvalResult:
     """Tag every record's noisy words and score the spans against its labels.
@@ -43,7 +44,10 @@ def evaluate_tagger(
             batch_size=batch_size,
         )
         return [
-            tuple(WordSpan(e.start, e.end, e.kind) for e in decode(p, thresholds=thresholds))
+            tuple(
+                WordSpan(e.start, e.end, e.kind)
+                for e in decode(p, thresholds=thresholds, default_threshold=default_threshold)
+            )
             for p in probabilities
         ]
 

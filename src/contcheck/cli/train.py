@@ -1,5 +1,6 @@
 """``contcheck train``: fine-tune the baseline tagger."""
 
+import json
 from itertools import islice
 from pathlib import Path
 
@@ -80,7 +81,12 @@ def train(
     )
     with (settings.out / HISTORY).open("w", encoding="utf-8") as file:
         for report in result.history:
-            file.write(report.val.model_dump_json() + "\n")
+            line = {
+                "epoch": report.epoch,
+                "train_loss": report.train_loss,
+                "val": report.val.model_dump(mode="json"),
+            }
+            file.write(json.dumps(line) + "\n")
     print(
         f"saved epoch {result.best_epoch} (val F0.5 {best.val.overall.f05:.4f}) to {settings.out}"
     )
