@@ -2,10 +2,10 @@
 default:
     @just --list
 
-# Install locked dependencies and the git pre-commit hooks.
-setup:
-    uv sync --locked
-    uv run pre-commit install
+# Install locked dependencies with a PyTorch build (cpu, cuda or rocm) and the pre-commit hooks.
+setup build="cpu":
+    uv sync --locked --extra {{build}}
+    uv run --no-sync pre-commit install
 
 # Format Python code.
 format:
@@ -24,9 +24,13 @@ typecheck:
 layout:
     uv run python scripts/check_layout.py
 
-# Run the test suite.
+# Run the default test suite (no downloads, no LLM, no datasets).
 test:
     uv run pytest
+
+# Run every test, including those that download models or datasets or need an LLM.
+test-all:
+    uv run pytest -m ""
 
 # Run the test suite with branch coverage (writes coverage.xml).
 coverage:

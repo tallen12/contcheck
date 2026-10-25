@@ -6,12 +6,18 @@ instead of models, so unit tests stay fast, offline and deterministic.
 
 import random
 import re
-from collections.abc import Iterable, Iterator, Mapping
+import zlib
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from typing import TYPE_CHECKING
 
 import pytest
 
 from contcheck.analysis.models import AnalyzedText, Token
+from contcheck.model.models import Encoding
 from contcheck.spelling.models import Suggestion
+
+if TYPE_CHECKING:
+    from transformers import ElectraConfig
 
 FINITE_TAGS = frozenset({"VBD", "VBP", "VBZ", "MD"})
 TOKEN_PATTERN = re.compile(r"\w+(?:'\w+)?|[^\w\s]")
@@ -158,6 +164,56 @@ def edit_distance(a: str, b: str) -> int:
             )
         previous = current
     return previous[-1]
+
+
+class FakeTokenizer:
+    """A ``Tokenizer`` that lowercases words and cuts them into three-letter pieces.
+
+    Piece ids are a hash into a small vocabulary, so the tiny test model can embed them.
+    """
+
+    vocab_size = 512
+    pad_id = 0
+    cls_id = 1
+    sep_id = 2
+    first_piece_id = 3
+    piece_length = 3
+
+    def encode_words(self, words: Sequence[str]) -> Encoding:
+        input_ids: list[int] = []
+        word_ids: list[int] = []
+        for index, word in enumerate(words):
+            lower = word.lower() or " "
+            for start in range(0, len(lower), self.piece_length):
+                input_ids.append(self.piece_id(lower[start : start + self.piece_length]))
+                word_ids.append(index)
+        return Encoding(tuple(input_ids), tuple(word_ids))
+
+    def piece_id(self, piece: str) -> int:
+        span = self.vocab_size - self.first_piece_id
+        return self.first_piece_id + zlib.crc32(piece.encode("utf-8")) % span
+
+
+@pytest.fixture
+def tokenizer() -> FakeTokenizer:
+    return FakeTokenizer()
+
+
+@pytest.fixture
+def tiny_encoder_config() -> ElectraConfig:
+    """A two-layer ELECTRA config for models with random weights; nothing is downloaded."""
+    from transformers import ElectraConfig
+
+    return ElectraConfig(
+        vocab_size=FakeTokenizer.vocab_size,
+        embedding_size=16,
+        hidden_size=16,
+        num_hidden_layers=2,
+        num_attention_heads=2,
+        intermediate_size=32,
+        max_position_embeddings=64,
+        pad_token_id=FakeTokenizer.pad_id,
+    )
 
 
 @pytest.fixture
