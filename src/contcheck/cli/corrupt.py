@@ -4,17 +4,21 @@ from itertools import islice
 from pathlib import Path
 
 from contcheck.analysis.lemminflect_inflector import LemmInflector
+from contcheck.analysis.lemminflect_lexicon import LemmLexicon
 from contcheck.analysis.spacy_analyzer import load_spacy_analyzer
 from contcheck.corpus.documents import SplitShares, group_documents
 from contcheck.corpus.jsonl import write_jsonl
 from contcheck.corpus.readers import read_paragraphs
+from contcheck.corrupt.adjective_adverb import AdjectiveAdverbCorruptor
 from contcheck.corrupt.agreement import AgreementCorruptor
 from contcheck.corrupt.config import load_gen_config
 from contcheck.corrupt.determiner import DeterminerCorruptor
 from contcheck.corrupt.generate import generate_records
+from contcheck.corrupt.noun_number import NounNumberCorruptor
 from contcheck.corrupt.real_word import RealWordCorruptor, load_confusion_sets
 from contcheck.corrupt.registry import CorruptorRegistry
 from contcheck.corrupt.spelling import SpellingCorruptor
+from contcheck.corrupt.verb_form import VerbFormCorruptor
 from contcheck.corrupt.verb_tense import VerbTenseCorruptor
 from contcheck.spelling.symspell_dictionary import load_symspell_dictionary
 
@@ -29,6 +33,9 @@ def build_registry() -> CorruptorRegistry:
             DeterminerCorruptor(),
             VerbTenseCorruptor(inflector),
             AgreementCorruptor(inflector),
+            VerbFormCorruptor(inflector),
+            NounNumberCorruptor(inflector),
+            AdjectiveAdverbCorruptor(LemmLexicon()),
         ]
     )
 
