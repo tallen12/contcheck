@@ -78,10 +78,13 @@ data features. The model features (F13, F14, F15) then build alongside the data 
 
 ## Running it
 
-- **Branch:** one feature branch, `feat/poc-tagger`, following the `git-workflow` skill.
-  Each row above is a task: `work/poc-tagger/<id>-<slug>` in
-  `.worktrees/poc-tagger--<id>-<slug>`, landed as one squashed commit. The branch goes to
-  `main` as one pull request when the user asks.
+- **Branches:** one branch per milestone slice, stacked so each can be reviewed on its
+  own: `feat/poc-m1-taxonomy` (F1) on `main`, `feat/poc-m2-rule-data` (C2, F3, F4,
+  F6–F11) on it, and `feat/poc-m3-baseline` (C3, F13–F17, `tag`) on top. Each feature
+  lands as one commit on its milestone branch; a change to a lower branch reaches the
+  ones above it by merging it up, not by rebasing. Every branch is one pull request in
+  the stack, merged bottom up after review. (This replaces the single `feat/poc-tagger`
+  branch first planned, so review comes in milestone-sized pieces.)
 - **Afterwards:** M1 to M3 continue from `main` with the remaining scope in the right-hand
   column, plus F2, F5 and F12.
 - **Data and compute:** about 60,000 Wikipedia paragraphs grouped into documents, two
@@ -93,7 +96,7 @@ data features. The model features (F13, F14, F15) then build alongside the data 
 
 ## Done when
 
-- `just check` passes on `feat/poc-tagger`.
+- `just check` passes on every branch of the stack.
 - `contcheck evaluate` reports per-kind F0.5 for all five PoC kinds on the synthetic val
   split, and the tagger beats the SymSpell-only baseline on Spelling.
 - `contcheck tag` flags errors in a handful of hand-written sentences, one per PoC kind,

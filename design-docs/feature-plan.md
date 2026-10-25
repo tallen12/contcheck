@@ -252,8 +252,8 @@ declared as conflicting so only one can be installed. One `uv.lock` covers all t
 ## Running the plan
 
 **Proof of concept first.** [poc-plan.md](poc-plan.md) builds a trimmed slice of F1, C2,
-F3, F4, F6–F11, C3 and F13–F17 on `feat/poc-tagger` to prove the pipeline end to end.
-The milestones below then finish each feature's remaining scope.
+F3, F4, F6–F11, C3 and F13–F17 on a stack of three milestone branches to prove the
+pipeline end to end. The milestones below then finish each feature's remaining scope.
 
 **Branches** follow the `git-workflow` skill. Each milestone is one feature branch
 (`feat/m1-taxonomy`, `feat/m2-rule-data`, ...), and each feature above is a task on it:
