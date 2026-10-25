@@ -162,11 +162,16 @@ for it.
 **Reading:** the patterns helped only a little (+6 points in context, nothing in a
 neutral sentence), and they cost some precision. The tagger still misses "libary" and
 "tomorow" in "Their going too the libary tomorow and he dont like it." The model has no
-dictionary, so it cannot tell a plausible misspelling from a rare correct word, and
-better synthetic typos do not close that gap. The likely fix is to give it the
-dictionary's answer: a SymSpell non-word flag per word as a model input, so the model
-learns when to trust it. That makes the planned M6 rule, which drops SymSpell flags the
-model rates as confident `O`, wrong as written: it would discard exactly these misses.
+dictionary, so it cannot tell a plausible misspelling from a rare correct word.
+
+**Decision:** non-word misspellings belong to the deterministic SymSpell pre-pass
+(implementation plan, Phase 5a step 1), not the tagger. The patterns are reverted;
+adjacent errors stay. The tagger's job is errors made of real words, the ones a
+dictionary cannot see. Next: a held-out confusion check to test whether the model
+generalizes beyond the pairs it trained on, then broader real-word error generation
+and more registers than Wikipedia. M6 still needs a rule for combining SymSpell flags
+with the tagger. Dropping flags the model rates as confident `O` would discard real
+misspellings like the ones above, so that rule should be revisited.
 The first run's model and data are kept locally as `runs/baseline-v1` and
 `data/synthetic-v1`.
 
