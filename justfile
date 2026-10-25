@@ -39,9 +39,10 @@ coverage:
 # Run all required checks.
 check: lint typecheck layout test
 
-# Run the CLI (pass arguments after the recipe name).
+# Run the CLI (pass arguments after the recipe name; quoted arguments stay whole).
+[positional-arguments]
 cli *args:
-    uv run contcheck {{args}}
+    uv run contcheck "$@"
 
 # Render design-docs/images/*.dot to PNG next to each source (needs Graphviz).
 diagrams:
