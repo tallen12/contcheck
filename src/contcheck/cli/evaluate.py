@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from itertools import islice
 from pathlib import Path
 
-from contcheck.cli.corrupt import confusion_split, load_confusions
+from contcheck.cli.corrupt import CONFUSION_CACHE, confusion_split, load_confusions
 from contcheck.cli.device import choose_device, describe, visible_gpus
 from contcheck.corpus.jsonl import read_jsonl
 from contcheck.corpus.record import Record
@@ -35,6 +35,7 @@ def evaluate(
     baseline: bool = True,
     limit: int | None = None,
     gen_config: Path = Path("configs/gen.yaml"),
+    cache: Path = CONFUSION_CACHE,
 ) -> None:
     """Print per-kind scores for a checkpoint on a record file and log them.
 
@@ -59,6 +60,8 @@ def evaluate(
     gen_config
         Generation config the training data was made with; it defines which confusion
         pairs were withheld for the held-out check.
+    cache
+        File that keeps the built confusion map between runs.
     """
     records = list(islice(read_jsonl(data, Record), limit))
     gpus = visible_gpus()
@@ -66,7 +69,9 @@ def evaluate(
     print(describe(chosen, gpus))
     dictionary = load_symspell_dictionary()
     checks = build_checks(
-        records, gen_config=load_gen_config(gen_config), confusions=load_confusions(dictionary)
+        records,
+        gen_config=load_gen_config(gen_config),
+        confusions=load_confusions(dictionary, cache=cache),
     )
     loaded = load_checkpoint(checkpoint, device=chosen)
     result = evaluate_tagger(

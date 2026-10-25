@@ -55,6 +55,7 @@ class WordChoiceCorruptor:
     word, and must not turn a preceding *a* or *an* wrong, which would be a second,
     unlabeled error. It survives only if the original is ``min_ratio`` times more
     probable and the candidate itself stays below ``max_candidate_probability``.
+    A pair in ``held_out`` is never produced, so withheld confusions stay out of training.
     """
 
     kind = ErrorKind.REAL_WORD
@@ -65,11 +66,13 @@ class WordChoiceCorruptor:
         lexicon: Lexicon,
         *,
         skip: Collection[str] = frozenset(),
+        held_out: Collection[frozenset[str]] = frozenset(),
         settings: WordChoiceSettings = DEFAULT_SETTINGS,
     ) -> None:
         self._scorer = scorer
         self._lexicon = lexicon
         self._skip = frozenset(word.lower() for word in skip)
+        self._held_out = frozenset(frozenset(w.lower() for w in pair) for pair in held_out)
         self._settings = settings
 
     def corrupt(self, context: CorruptionContext, rng: Rng) -> Edit | None:
@@ -130,6 +133,7 @@ class WordChoiceCorruptor:
                 new in neighbours
                 or new in self._skip
                 or new in candidates
+                or frozenset({word.lower(), new}) in self._held_out
                 or score.probability > settings.max_candidate_probability
                 or original < settings.min_ratio * score.probability
                 or (after_article and (new[0] in VOWELS) != (word[0].lower() in VOWELS))

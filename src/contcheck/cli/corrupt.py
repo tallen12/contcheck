@@ -1,5 +1,8 @@
 """``contcheck corrupt``: generate rule-based training data."""
 
+from collections.abc import Collection
+from importlib.metadata import version
+from importlib.resources import files
 from itertools import islice
 from pathlib import Path
 
@@ -16,7 +19,14 @@ from contcheck.corrupt.adjective_adverb import AdjectiveAdverbCorruptor
 from contcheck.corrupt.agreement import AgreementCorruptor
 from contcheck.corrupt.composite import CompositeCorruptor
 from contcheck.corrupt.config import GenConfig, load_gen_config
-from contcheck.corrupt.confusables import ConfusionMap, build_confusion_map, load_homophone_groups
+from contcheck.corrupt.confusables import DEFAULT_SETTINGS as DEFAULT_CONFUSION_SETTINGS
+from contcheck.corrupt.confusables import (
+    HOMOPHONES,
+    ConfusionMap,
+    build_confusion_map,
+    load_homophone_groups,
+)
+from contcheck.corrupt.confusion_cache import cache_key, load_confusion_map, save_confusion_map
 from contcheck.corrupt.conjunction import ConjunctionCorruptor
 from contcheck.corrupt.determiner import DeterminerCorruptor
 from contcheck.corrupt.generate import generate_records
@@ -25,7 +35,7 @@ from contcheck.corrupt.noun_number import NounNumberCorruptor
 from contcheck.corrupt.preposition import PrepositionCorruptor
 from contcheck.corrupt.pronoun import PronounCorruptor
 from contcheck.corrupt.protocols import Corruptor
-from contcheck.corrupt.real_word import RealWordCorruptor, load_confusion_sets
+from contcheck.corrupt.real_word import CONFUSION_SETS, RealWordCorruptor, load_confusion_sets
 from contcheck.corrupt.registry import CorruptorRegistry
 from contcheck.corrupt.spelling import SpellingCorruptor
 from contcheck.corrupt.verb_form import VerbFormCorruptor
@@ -53,14 +63,44 @@ RULE_KINDS: tuple[ErrorKind, ...] = tuple(
 """The kinds :func:`build_registry` has corruptors for, known without loading adapters."""
 
 
-def load_confusions(dictionary: SymSpellDictionary) -> ConfusionMap:
-    """Hand-written, homophone and look-alike confusions over the SymSpell word list."""
-    return build_confusion_map(
+CONFUSION_CACHE = Path("data/cache/confusions.json")
+"""Where the built confusion map is kept between runs (``data/`` is not tracked)."""
+
+
+def load_confusions(dictionary: SymSpellDictionary, *, cache: Path) -> ConfusionMap:
+    """Hand-written, homophone and look-alike confusions over the SymSpell word list.
+
+    The map is read from ``cache`` when that was built from the same inputs, and built
+    and written there otherwise.
+    """
+    key = _confusions_key()
+    cached = load_confusion_map(cache, key=key)
+    if cached is not None:
+        return cached
+    confusions = build_confusion_map(
         frequencies=dictionary.frequencies(),
         dictionary=dictionary,
         lemmatizer=LemmInflectLemmatizer(),
         confusion_sets=load_confusion_sets(),
         homophones=load_homophone_groups(),
+    )
+    save_confusion_map(cache, confusions, key=key)
+    return confusions
+
+
+def _confusions_key() -> str:
+    # Everything the build reads: the word list and lemmatizer versions, the bundled
+    # data, the settings and the code that combines them.
+    package = files("contcheck.corrupt")
+    return cache_key(
+        [
+            version("symspellpy"),
+            version("lemminflect"),
+            repr(DEFAULT_CONFUSION_SETTINGS),
+            (package / "confusables.py").read_text(encoding="utf-8"),
+            (package / "data" / CONFUSION_SETS).read_text(encoding="utf-8"),
+            (package / "data" / HOMOPHONES).read_text(encoding="utf-8"),
+        ]
     )
 
 
@@ -75,25 +115,33 @@ def confusion_split(config: GenConfig, confusions: ConfusionMap) -> ConfusionSpl
     )
 
 
+def held_out_pairs(split: ConfusionSplit) -> frozenset[frozenset[str]]:
+    """The withheld confusions as unordered pairs."""
+    return frozenset(
+        frozenset({word, other}) for word, others in split.held_out.items() for other in others
+    )
+
+
 def build_registry(
     confusions: ConfusionMap,
     *,
     dictionary: SymSpellDictionary,
     word_choice_share: float = 0.0,
     word_choice_model: str = "distilroberta-base",
+    held_out: Collection[frozenset[str]] = frozenset(),
     device: str | None = None,
 ) -> CorruptorRegistry:
     """Every corruptor there is, wired to the real adapters.
 
     RealWord draws from ``confusions`` (already reduced to the training split) and, when
     ``word_choice_share`` is positive, from a masked LM on ``device`` or the largest
-    discrete GPU.
+    discrete GPU, which never proposes a ``held_out`` pair.
     """
     inflector = LemmInflector()
     return CorruptorRegistry(
         [
             SpellingCorruptor(dictionary),
-            _real_word(confusions, word_choice_share, word_choice_model, device),
+            _real_word(confusions, word_choice_share, word_choice_model, held_out, device),
             DeterminerCorruptor(),
             VerbTenseCorruptor(inflector),
             AgreementCorruptor(inflector),
@@ -108,7 +156,11 @@ def build_registry(
 
 
 def _real_word(
-    confusions: ConfusionMap, word_choice_share: float, model: str, device: str | None
+    confusions: ConfusionMap,
+    word_choice_share: float,
+    model: str,
+    held_out: Collection[frozenset[str]],
+    device: str | None,
 ) -> Corruptor:
     pairs = RealWordCorruptor(confusions)
     if word_choice_share <= 0:
@@ -122,7 +174,9 @@ def _real_word(
     chosen = choose_device(device, gpus)
     print(f"word choice masked LM {model} on {describe(chosen, gpus)}")
     scorer = CachedScorer(load_masked_scorer(model, device=chosen))
-    word_choice = WordChoiceCorruptor(scorer, LemmInflectLexicon(), skip=STOP_WORDS)
+    word_choice = WordChoiceCorruptor(
+        scorer, LemmInflectLexicon(), skip=STOP_WORDS, held_out=held_out
+    )
     return CompositeCorruptor(
         ErrorKind.REAL_WORD, [(pairs, 1 - word_choice_share), (word_choice, word_choice_share)]
     )
@@ -135,6 +189,7 @@ def corrupt(
     out: Path,
     limit: int | None = None,
     device: str | None = None,
+    cache: Path = CONFUSION_CACHE,
 ) -> None:
     """Corrupt clean paragraphs into labeled noisy records.
 
@@ -150,11 +205,14 @@ def corrupt(
         Use only the first ``limit`` documents, for quick runs.
     device
         PyTorch device for the word-choice masked LM; default: the largest discrete GPU.
+    cache
+        File that keeps the built confusion map between runs.
     """
     gen_config = load_gen_config(config)
     dictionary = load_symspell_dictionary()
-    confusions = load_confusions(dictionary)
-    training = confusions.restrict(confusion_split(gen_config, confusions).train)
+    confusions = load_confusions(dictionary, cache=cache)
+    split = confusion_split(gen_config, confusions)
+    training = confusions.restrict(split.train)
     documents = group_documents(read_paragraphs(in_), seed=gen_config.seed, shares=SplitShares())
     records = generate_records(
         islice(documents, limit),
@@ -164,6 +222,7 @@ def corrupt(
             dictionary=dictionary,
             word_choice_share=gen_config.word_choice_share,
             word_choice_model=gen_config.word_choice_model,
+            held_out=held_out_pairs(split),
             device=device,
         ),
         config=gen_config,

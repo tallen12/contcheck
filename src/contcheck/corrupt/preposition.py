@@ -7,26 +7,29 @@ from contcheck.corrupt.edit import Edit
 from contcheck.corrupt.protocols import Rng
 from contcheck.taxonomy.kinds import ErrorKind, Operation
 
-# Each preposition maps to the ones writers confuse it with. Subordinating conjunctions
-# that share the IN tag (because, although, if, that) are absent, so they are never sites.
+# Each preposition maps to the confusions that are wrong in most contexts. Pairs that
+# often both fit are left out, since the result would be correct English labeled as an
+# error: about/on/of (a book about or on birds, think of or about it), into/in/to,
+# onto/on, to/for (gave it to or for her) and with/by (covered with or by snow).
+# Subordinating conjunctions that share the IN tag (because, although, if, that) are
+# absent, so they are never sites.
 CONFUSIONS: Mapping[str, tuple[str, ...]] = {
-    "in": ("on", "at", "into"),
+    "in": ("on", "at"),
     "on": ("in", "at"),
     "at": ("in", "on", "to"),
-    "to": ("for", "at", "into"),
-    "for": ("to", "of"),
-    "of": ("for", "from", "about"),
-    "with": ("by", "from"),
-    "by": ("with", "from"),
-    "from": ("of", "by"),
-    "about": ("of", "on"),
-    "into": ("in", "to"),
-    "onto": ("on", "in"),
+    "to": ("at",),
+    "for": ("of",),
+    "of": ("from",),
+    "with": ("from",),
+    "by": ("from",),
+    "from": ("of",),
+    "onto": ("in",),
 }
 # Dropping these between a verb and its object leaves the verb with an object it cannot
 # take (waited the bus, listened the music). ``in`` and ``on`` are left out: without them
 # a time phrase is often still fine (met Monday).
 DROPPABLE = frozenset({"to", "at", "about", "with", "from", "for", "of"})
+PREPOSITIONS = frozenset(CONFUSIONS) | DROPPABLE
 # A noun phrase start a dropped preposition leaves the verb facing. Pronouns are left
 # out: gave to him and bought for her become the fine gave him and bought her.
 OBJECT_START_TAGS = frozenset({"DT", "PRP$", "NN", "NNS", "NNP", "JJ"})
@@ -53,7 +56,7 @@ type Proposal = Callable[[CorruptionContext, Rng], Edit | None]
 
 
 def _is_preposition(context: CorruptionContext, i: int) -> bool:
-    if context.words[i].lower() not in CONFUSIONS:
+    if context.words[i].lower() not in PREPOSITIONS:
         return False
     match context.tags[i]:
         case "IN":
@@ -68,7 +71,11 @@ def _is_preposition(context: CorruptionContext, i: int) -> bool:
 
 def swap_preposition(context: CorruptionContext, rng: Rng) -> Edit | None:
     """Replace a preposition by one it is commonly confused with (in for on)."""
-    sites = [i for i in range(len(context.tokens)) if _is_preposition(context, i)]
+    sites = [
+        i
+        for i in range(len(context.tokens))
+        if _is_preposition(context, i) and context.words[i].lower() in CONFUSIONS
+    ]
     if not sites:
         return None
     i = rng.choice(sites)

@@ -1,6 +1,6 @@
 import pytest
 
-from contcheck.cli.corrupt import RULE_KINDS, build_registry, confusion_split
+from contcheck.cli.corrupt import RULE_KINDS, build_registry, confusion_split, held_out_pairs
 from contcheck.corrupt.config import GenConfig
 from contcheck.corrupt.confusables import ConfusionMap, hand_written_map
 from contcheck.corrupt.real_word import load_confusion_sets
@@ -68,3 +68,16 @@ def test_training_map_keeps_only_training_pairs_with_weights(confusions: Confusi
 
     assert training.as_sets() == {w: alts for w, alts in split.train.items()}
     assert all(c.weight > 0 for c in training)
+
+
+def test_held_out_pairs_are_unordered(confusions: ConfusionMap) -> None:
+    split = confusion_split(config(0.3), confusions)
+
+    pairs = held_out_pairs(split)
+
+    assert pairs
+    for word, others in split.held_out.items():
+        for other in others:
+            assert frozenset({word, other}) in pairs
+            assert frozenset({other, word}) in pairs
+    assert not any(frozenset({w, o}) in pairs for w, os in split.train.items() for o in os)

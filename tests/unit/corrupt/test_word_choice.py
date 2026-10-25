@@ -183,3 +183,15 @@ def test_no_candidate_at_any_site_gives_none(sites_per_call: int) -> None:
     )
 
     assert corruptor.corrupt(context_of("In the park garden."), random.Random(1)) is None
+
+
+def test_held_out_pairs_are_never_proposed() -> None:
+    scorer = FakeScorer({"garden": (0.6, [("park", 0.0005), ("sky", 0.0004)])})
+    corruptor = WordChoiceCorruptor(
+        scorer, TableLexicon(), held_out={frozenset({"Park", "garden"})}
+    )
+    context = context_of("In the garden.")
+
+    news = {e.new for seed in range(30) if (e := corruptor.corrupt(context, random.Random(seed)))}
+
+    assert news == {("sky",)}
