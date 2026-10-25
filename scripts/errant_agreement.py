@@ -15,7 +15,8 @@ from pathlib import Path
 
 from contcheck.annotation.convert import to_annotation
 from contcheck.annotation.errant_annotator import load_errant_annotator
-from contcheck.annotation.models import Unmappable
+from contcheck.annotation.models import TypedEdit, Unmappable
+from contcheck.corpus.jsonl import read_jsonl
 from contcheck.corpus.record import Record, revert_edits
 from contcheck.taxonomy.errant_map import Dropped, Mapped, map_edit
 
@@ -24,9 +25,7 @@ EXAMPLES_PER_KIND = 4
 
 def read_records(path: Path, limit: int) -> list[Record]:
     """Every ``len // limit``-th record with edits, so the sample spans the file."""
-    with path.open(encoding="utf-8") as lines:
-        records = [Record.model_validate_json(line) for line in lines]
-    with_edits = [record for record in records if record.edits]
+    with_edits = [record for record in read_jsonl(path, Record) if record.edits]
     step = max(1, len(with_edits) // limit)
     return with_edits[::step][:limit]
 
@@ -50,9 +49,7 @@ def outcomes(records: list[Record], rejected: list[Record]) -> Iterator[tuple[st
             )
             theirs = by_range.get((ours.start, ours.end))
             if theirs is None:
-                overlapping = [
-                    e.code for e in edits if e.noisy_start <= ours.end and ours.start <= e.noisy_end
-                ]
+                overlapping = [e.code for e in edits if _overlaps(e, ours.start, ours.end)]
                 yield ours.kind, f"span differs {overlapping}", example
                 continue
             match map_edit(theirs.code, theirs.evidence):
@@ -63,12 +60,23 @@ def outcomes(records: list[Record], rejected: list[Record]) -> Iterator[tuple[st
             yield ours.kind, outcome, f"{example} [{theirs.code}]"
 
 
+def _overlaps(edit: TypedEdit, start: int, end: int) -> bool:
+    """Whether ``edit``'s noisy range shares a word with ``start:end``, or both are the
+    same empty gap; ranges that only touch do not overlap."""
+    if edit.noisy_start == edit.noisy_end or start == end:
+        return edit.noisy_start == start and edit.noisy_end == end
+    return edit.noisy_start < end and start < edit.noisy_end
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("records", type=Path)
     parser.add_argument("--limit", type=int, default=500)
     args = parser.parse_args()
     records = read_records(args.records, args.limit)
+    if not records:
+        print(f"no records with edits in {args.records}")
+        return 0
     totals: Counter[str] = Counter()
     agree: Counter[str] = Counter()
     misses: defaultdict[str, Counter[str]] = defaultdict(Counter)
@@ -83,7 +91,8 @@ def main() -> int:
         if len(examples[kind]) < EXAMPLES_PER_KIND:
             examples[kind].append(f"{example} => {outcome}")
     edits = sum(totals.values())
-    print(f"{len(records)} records, {edits} edits, {sum(agree.values()) / edits:.1%} agree")
+    share = sum(agree.values()) / edits if edits else 0.0
+    print(f"{len(records)} records, {edits} edits, {share:.1%} agree")
     print(f"{len(rejected)} records ({len(rejected) / len(records):.1%}) would be unmappable\n")
     print("| Kind | Edits | Agree | Most common disagreement |")
     print("| --- | ---: | ---: | --- |")

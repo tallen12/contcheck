@@ -53,6 +53,7 @@ Choices that are not obvious from the names:
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import assert_never
 
 from contcheck.taxonomy.kinds import ErrorKind, Operation
 
@@ -229,6 +230,8 @@ def map_edit(code: str, evidence: EditEvidence) -> EditMapping:
             if isinstance(kind, Dropped):
                 return kind
             return Mapped(kind, op)
+        case unreachable:
+            assert_never(unreachable)
 
 
 def _refine(rule: Refinement, evidence: EditEvidence) -> ErrorKind | Dropped:
@@ -239,7 +242,9 @@ def _refine(rule: Refinement, evidence: EditEvidence) -> ErrorKind | Dropped:
             return ErrorKind.REAL_WORD if evidence.noisy_is_word else ErrorKind.SPELLING
         case Refinement.DETERMINER:
             tags = {*evidence.noisy_tags, *evidence.clean_tags}
-            return ErrorKind.PRONOUN_FORM if tags <= PRONOUN_TAGS else ErrorKind.DETERMINER
+            # An empty tag set is a subset of every set, so require at least one tag.
+            is_pronoun = bool(tags) and tags <= PRONOUN_TAGS
+            return ErrorKind.PRONOUN_FORM if is_pronoun else ErrorKind.DETERMINER
         case Refinement.PREPOSITION:
             if evidence.clean_deps == (CLAUSE_MARKER_DEP,):
                 return ErrorKind.CONJUNCTION
@@ -254,6 +259,8 @@ def _refine(rule: Refinement, evidence: EditEvidence) -> ErrorKind | Dropped:
             return ErrorKind.PUNCTUATION
         case Refinement.OTHER:
             return _other_kind(evidence)
+        case unreachable:
+            assert_never(unreachable)
 
 
 def _orthography_kind(evidence: EditEvidence) -> ErrorKind:

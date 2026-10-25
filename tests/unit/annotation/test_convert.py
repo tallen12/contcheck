@@ -1,6 +1,6 @@
 import pytest
 
-from contcheck.annotation.convert import shape_operation, to_annotation
+from contcheck.annotation.convert import code_for_shape, shape_operation, to_annotation
 from contcheck.annotation.models import AlignmentError, Annotated, TypedEdit, Unmappable
 from contcheck.corpus.record import EditRecord
 from contcheck.taxonomy.errant_map import EditEvidence
@@ -93,3 +93,27 @@ def test_operation_follows_the_range_not_the_code() -> None:
 def test_edits_that_do_not_restore_the_clean_words_fail_loudly() -> None:
     with pytest.raises(AlignmentError):
         to_annotation([typed((1, 2), (1, 2), "R:VERB:TENSE")], NOISY, CLEAN)
+
+
+def test_an_open_class_code_is_mapped_under_the_shape_s_operation() -> None:
+    # ERRANT can type [Cat -> Black cat] as M:ADJ though it replaces a word; as a
+    # replacement it is a word-choice change, not a missing word.
+    edit = typed((0, 1), (0, 2), "M:ADJ")
+
+    result = to_annotation([edit], ("Cat", "sat"), ("Black", "cat", "sat"))
+
+    assert isinstance(result, Annotated)
+    assert [(r.kind, r.op) for r in result.edits] == [(ErrorKind.REAL_WORD, Operation.REPLACEMENT)]
+
+
+@pytest.mark.parametrize(
+    ("code", "op", "expected"),
+    [
+        ("M:ADJ", Operation.REPLACEMENT, "R:ADJ"),
+        ("R:DET", Operation.REPLACEMENT, "R:DET"),
+        ("R:ADJ:FORM", Operation.MISSING, "R:ADJ:FORM"),  # ERRANT has no M:ADJ:FORM
+        ("UNK", Operation.MISSING, "UNK"),
+    ],
+)
+def test_code_for_shape(code: str, op: Operation, expected: str) -> None:
+    assert code_for_shape(code, op) == expected
