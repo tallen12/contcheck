@@ -24,7 +24,6 @@ class CosmopediaRow(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     text: str
-    format: str
 
 
 class CosmopediaStories:
@@ -38,4 +37,4 @@ class CosmopediaStories:
     def articles(self) -> Iterator[Article]:
         for raw in self._load(self._query, self._seed):
             row = CosmopediaRow.model_validate(raw)
-            yield Article(id=text_id(row.text), title=row.format, text=row.text.strip())
+            yield Article(id=text_id(row.text), title="", text=row.text.strip())

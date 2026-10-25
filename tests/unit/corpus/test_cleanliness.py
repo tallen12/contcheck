@@ -112,6 +112,7 @@ def test_counting_screen_summary_with_nothing_screened() -> None:
         ("aluminum", "aluminium"),
         ("sulfide", "sulphide"),
         ("distill", "distil"),
+        ("mom", "mum"),
         ("moms", "mums"),
     ],
 )

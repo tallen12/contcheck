@@ -16,7 +16,13 @@ from contcheck.corpus.hub import HubLoader, HubQuery
 from contcheck.corpus.ids import text_id
 from contcheck.corpus.models import Article
 
-QUERY = HubQuery(dataset="noanabeshima/TinyStoriesV2", data_files="TinyStoriesV2-GPT4-train.jsonl")
+QUERY = HubQuery(
+    dataset="noanabeshima/TinyStoriesV2",
+    data_files="TinyStoriesV2-GPT4-train.jsonl",
+    shuffle_buffer=200_000,
+)
+"""The stories are one file, so only the buffer shuffles them. Rows are about 1 KB, so the
+buffer holds about 200 MB and a fetch samples the first 7% of the file, not the first 0.4%."""
 
 
 class TinyStoryRow(BaseModel):

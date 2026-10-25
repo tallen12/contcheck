@@ -17,7 +17,7 @@ def test_stories_become_articles_with_hashed_ids() -> None:
 
     assert calls == [(QUERY, 5)]
     assert QUERY.config == "stories"
-    assert [(a.id, a.title) for a in articles] == [(text_id(STORY), "story_children")]
+    assert [(a.id, a.title) for a in articles] == [(text_id(STORY), "")]
     assert article_paragraphs(articles[0], ParagraphFilter(min_words=1)) == [
         "In a small town lived Ana.",
         "She baked bread every day.",

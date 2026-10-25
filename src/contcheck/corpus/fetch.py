@@ -71,12 +71,18 @@ def fetch_paragraphs(
     Each article becomes one source, ``<prefix>-<article id>``, so documents never mix
     articles. Only the first ``per_article`` paragraphs of an article that pass
     ``paragraph_filter`` and ``screen`` are used, so long articles do not crowd out the
-    rest.
+    rest. An article whose id was already used is skipped: sources that hash the text
+    into the id give duplicate rows the same id, and a source's paragraphs must stay
+    consecutive for document grouping.
     """
     if limit <= 0:
         return
     count = 0
+    used: set[str] = set()
     for article in source.articles():
+        if article.id in used:
+            continue
+        used.add(article.id)
         paragraphs = screened_paragraphs(article, paragraph_filter, screen, limit=per_article)
         if len(paragraphs) < MIN_PARAGRAPHS:
             continue

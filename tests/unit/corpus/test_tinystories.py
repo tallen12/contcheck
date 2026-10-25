@@ -16,6 +16,7 @@ def test_stories_become_articles_with_one_paragraph_per_line() -> None:
 
     assert calls == [(QUERY, 5)]
     assert QUERY.data_files == "TinyStoriesV2-GPT4-train.jsonl"
+    assert QUERY.shuffle_buffer > 10_000
     assert [a.id for a in articles] == [text_id(STORY)]
     assert (
         articles[0].text == "Once upon a time there was a cat.\n\nThe cat liked milk.\n\nThe end."
