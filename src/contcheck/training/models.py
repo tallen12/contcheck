@@ -3,6 +3,7 @@
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from contcheck.taxonomy.kinds import ErrorKind
+from contcheck.training.probes import CheckName, ProbeScore
 
 BETA = 0.5
 """F0.5 weights precision twice as much as recall: false alarms annoy more than misses."""
@@ -62,7 +63,5 @@ class EvalResult(BaseModel):
     clean_words: int
     false_alarms_per_1000: float
     """Spans flagged per 1,000 words of paragraphs that have no errors."""
-    natural_misspellings: int = 0
-    """Probes in the real-misspelling check; 0 when it was not run."""
-    natural_misspelling_recall: float = 0.0
-    """Share of real misspellings flagged as Spelling in the check."""
+    checks: dict[CheckName, ProbeScore] = Field(default_factory=dict)
+    """Probe checks that were run, by name."""

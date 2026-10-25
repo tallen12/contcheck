@@ -33,7 +33,7 @@ stays as a debugging command after M6's ONNX `check()` exists.
 | C2 | `Edit`, `Record`, `CorruptionContext`, `GenConfig`; `Corruptor`, `TextAnalyzer`, `Inflector`, `Dictionary` protocols; corruptor registry; shared fakes; CLI split. Dependencies: `pydantic`, `pyyaml`, `cyclopts`, `spacy`, `en-core-web-sm`, `lemminflect`, `symspellpy`, `datasets` | `Annotator` protocol and `errant` (with F5) |
 | F3 | All of F3: spaCy analyzer, tense histogram, doc stats | — |
 | F4 | Dictionary membership and suggestions | User words, token skipping rules |
-| F6 | Plain-text and JSONL readers, `corpus fetch` streaming an English Wikipedia subset through `datasets`, document grouping, document-level split | SymSpell-based filtering, more sources |
+| F6 | Plain-text and JSONL readers, `corpus fetch` streaming English Wikipedia and the sources in [Corpus sources](#corpus-sources-2026-10-24) through `datasets`, the cleanliness filter, document grouping, document-level split | Tuning the mix on real eval data |
 | F7 | All of F7: the applier | — |
 | F8 | Spelling | Capitalization, Apostrophe, WordBoundary, Punctuation |
 | F9 | RealWord, Determiner | Preposition, Conjunction, ExtraWord, MissingWord, WordOrder |
@@ -175,9 +175,163 @@ misspellings like the ones above, so that rule should be revisited.
 The first run's model and data are kept locally as `runs/baseline-v1` and
 `data/synthetic-v1`.
 
+## Held-out confusion check (2026-10-24)
+
+Does the tagger judge whether a word fits, or memorize the confusion pairs it trained on?
+`held_out_confusion_share: 0.2` withheld a fifth of the ~50 hand-written confusion sets'
+pairs from the RealWord corruptor. The data was regenerated and the model retrained (3
+epochs, best at epoch 3, val F0.5 0.807). `evaluate` then swapped partners into val text:
+
+| Probe | Flagged | Flagged as RealWord | Probes |
+| --- | --- | --- | --- |
+| Pairs seen in training | 0.930 | 0.924 | 1,041 |
+| Pairs withheld from training | 0.245 | 0.161 | 347 |
+
+**Reading:** the model memorizes pairs. RealWord F0.5 on synthetic val is 0.974, but a
+wrong word from a pair it has not seen is caught a quarter of the time. This is the
+baseline the broader real-word generators (generated confusables, masked-LM
+substitutions, closed-class and inflection kinds) have to move. The held-out number,
+not synthetic val, is the one to watch.
+
+## Real-word error run (2026-10-24)
+
+All six real-word PRs merged (#8–#13): eleven error kinds, generated confusions plus
+roberta-large word-choice errors for RealWord, Spelling down-weighted, and the seven-source
+corpus (100,000 paragraphs). `corrupt` wrote 200,000 records in 13 minutes (177,327
+train, 9,348 val, 10,353 test after merge; no round-trip failures). Training took 11.7
+minutes: val F0.5 0.700, 0.713, 0.713, keeping epoch 2. Below, "old" is the held-out
+baseline model (five kinds, Wikipedia, hand-written pairs) and "new" is this one. The
+held-out split is a seeded hash per pair, so the hand-written pairs withheld from the old
+model are withheld from the new one too.
+
+| Held-out check (pairs neither model trained on) | Old | New |
+| --- | --- | --- |
+| Hand-written pairs, old val text (the 0.245 baseline) | 0.245 | 0.455 |
+| Hand-written pairs, new val text | 0.299 | 0.493 |
+| All generated pairs, new val text (33,419 probes) | 0.221 | 0.543 |
+| Same, flagged as RealWord | 0.169 | 0.507 |
+
+| Measure | Old | New |
+| --- | --- | --- |
+| Seen pairs vs held-out pairs, new model, new val | — | 0.528 vs 0.543 |
+| Seen hand-written pairs, old val text | 0.930 | 0.727 |
+| Overall F0.5, old val (old model's own test) | 0.807 | 0.737 |
+| Overall F0.5, new val (11 kinds) | 0.448 | 0.713 |
+| False alarms per 1,000 clean words, new val | 6.71 | 8.02 |
+| Real misspellings flagged (SymSpell owns these now) | 0.484 | 0.407 |
+
+New model per kind on new val (F0.5): VerbForm 0.953, AdjectiveAdverb 0.925, PronounForm
+0.921, NounNumber 0.856, SubjectVerbAgreement 0.839, Spelling 0.757, VerbTense 0.678,
+Conjunction 0.671, Preposition 0.618, RealWord 0.553, Determiner 0.529.
+
+**Reading:** the memorization gap is gone. The new model flags seen and held-out pairs
+equally often (0.528 against 0.543), and held-out recall more than doubled. It now judges
+fit rather than recalling a list, but only about half the time. The cost is precision:
+false alarms rose about 20% on the same text, and the weakest kinds are the ones with the
+noisiest labels. RealWord precision is 0.58: about a quarter of the masked-LM edits were
+acceptable alternatives on review, and some look-alikes fit both ways. Determiner
+precision is 0.49 and Preposition 0.59, since inserted articles and swapped prepositions
+are often still correct. Seen hand-written pairs drop from 0.930 to 0.727 because they
+are now a small share of RealWord training. The old model's 0.807 on its own val was
+mostly that memorization (RealWord 0.974 there).
+
+**Next:** cut label noise before adding volume. Raise the word-choice filter's ratio and
+lower its share, drop look-alike pairs where both words are common in the same contexts,
+and tighten Determiner insertions and Preposition swaps. Track the held-out check and the
+false-alarm rate together. Real human-error evaluation (F12) remains the decisive test.
+
+## Corpus sources (2026-10-24)
+
+The tagger's job is now errors made of real words, which depend on register, and
+Wikipedia has almost no first person, dialogue, narration, instructions or informal text.
+`corpus fetch --source <name>` streams each source below; `corrupt --in data/raw` reads
+every JSONL file in the directory, so each source's `--limit` sets the mix.
+
+| Source (`--source`) | Hugging Face dataset | License | Streams | Notes |
+| --- | --- | --- | --- | --- |
+| `wikipedia` | [`wikimedia/wikipedia`](https://huggingface.co/datasets/wikimedia/wikipedia) `20231101.en` | CC BY-SA 3.0 / GFDL | yes | Unchanged |
+| `simple-wikipedia` (optional) | [`wikimedia/wikipedia`](https://huggingface.co/datasets/wikimedia/wikipedia) `20231101.simple` | CC BY-SA 3.0 / GFDL | yes | Short plain sentences; not in the mix by default |
+| `gutenberg` | [`sedthh/gutenberg_english`](https://huggingface.co/datasets/sedthh/gutenberg_english) | Books public domain in the US; dataset card MIT | yes (37 parquet shards, 10.7 GB) | 48,284 books with catalogue metadata (author birth/death years, subjects, bookshelves) and the license header already removed. No publication date: kept books have every main author born 1870 or later and a fiction subject or bookshelf, not drama or poetry (about 1 in 8 books) |
+| `fineweb-edu` | [`HuggingFaceFW/fineweb-edu`](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) `sample-10BT` | ODC-By 1.0 (plus Common Crawl terms) | yes | One paragraph per line; already filtered to educational score ≥ 3 |
+| `wikinews` | [`Fumika/Wikinews-multilingual`](https://huggingface.co/datasets/Fumika/Wikinews-multilingual) | CC BY 2.5 | yes (one 45 MB JSONL) | 5,240 English articles with paragraphs as clean lists; only `lang == "en"` rows are used |
+| `wikibooks`, `wikivoyage` | [`common-pile/wikimedia`](https://huggingface.co/datasets/common-pile/wikimedia) (`*_wikibooks.com.jsonl.gz`, `*_wikivoyage.com.jsonl.gz`) | CC BY-SA 4.0 per row | yes | Main namespace only. The wikitext conversion drops links and templates and leaves gaps (`the  of Brazil,,`); lines with such gaps are dropped |
+| `stackexchange` | [`HuggingFaceH4/stack-exchange-preferences`](https://huggingface.co/datasets/HuggingFaceH4/stack-exchange-preferences), one `data/<site>.stackexchange.com` directory per site | CC BY-SA 4.0 | yes | Answers as HTML with `pm_score = round(log2(1 + upvotes))`, +1 if accepted. Answers with `pm_score ≥ 4` (about 10 upvotes) from 25 prose-heavy sites, taken site by site; `english` and `ell` are left out because they quote wrong sentences on purpose |
+
+Skipped: the Common Pile Wikinews files (the same lossy conversion drops most link text
+in news, for example "the of the People's Republic of China had lunch today with the of
+Brazil,,"), [`manu/project_gutenberg`](https://huggingface.co/datasets/manu/project_gutenberg)
+(raw text with license headers but no catalogue metadata, so no date or genre filter
+without a separate catalogue download), [`deepmind/pg19`](https://huggingface.co/datasets/deepmind/pg19)
+(pre-1919 books only, and a loading script the viewer cannot run),
+[`common-pile/stackexchange`](https://huggingface.co/datasets/common-pile/stackexchange)
+(no vote scores, and questions, answers and comments are joined into one text) and
+[`flax-sentence-embeddings/stackexchange_titlebody_best_voted_answer_jsonl`](https://huggingface.co/datasets/flax-sentence-embeddings/stackexchange_titlebody_best_voted_answer_jsonl)
+(CC BY-NC-SA).
+
+**Cleanup per source.** Gutenberg: in this dataset a single line break ends a paragraph and
+a doubled one is a hard wrap, so wraps are joined; Gutenberg start/end markers, chapter and
+part headings, page and footnote markers (`[159]`, `[Illustration: ...]`) and `_emphasis_`
+underscores are removed, and the first 10% of each book (contents, preface) is skipped.
+Stack Exchange: only top-level `<p>` text is kept; code, quotes, lists, headings and tables
+are dropped, and so is any paragraph with inline code, an image or a line break.
+FineWeb-Edu, Wikinews, Wikibooks and Wikivoyage keep their paragraph structure, one line
+per paragraph, so a heading such as "Understand" never sticks to the paragraph below it.
+
+**Cleanliness filter (F6).** After the existing shape filter (20–200 words, ends like a
+sentence), every source passes `CleanlinessFilter` on the injected `Dictionary`: it drops
+paragraphs with list syntax, markup (HTML tags, wiki braces, URLs, entities, `|`, `\`,
+`*`, underscores), more than 25% words in capitals, a sentence over 70 words, or more than
+3% unknown words among lowercase alphabetic words of three or more letters. The bundled
+SymSpell list is British-leaning, so an American spelling counts as known when its British
+form is (neighborhood, theater, traveled, aluminum). `--max-non-word-share` and
+`--max-sentence-words` change the thresholds, and `fetch` prints how many paragraphs each
+check dropped. Share of shape-filtered paragraphs each source loses, on a sample of about
+600 paragraphs per source (seed 13):
+
+| Source | Screened | Rejected | Non-words | List | Markup | Other |
+| --- | --- | --- | --- | --- | --- | --- |
+| wikipedia | 645 | 15.8% | 91 | 0 | 3 | 8 |
+| simple-wikipedia | 591 | 9.3% | 52 | 1 | 1 | 1 |
+| gutenberg | 658 | 19.9% | 123 | 0 | 1 | 7 |
+| fineweb-edu | 644 | 15.8% | 65 | 26 | 9 | 2 |
+| wikinews | 553 | 4.3% | 21 | 0 | 1 | 2 |
+| wikivoyage | 862 | 34.9% | 45 | 254 | 0 | 2 |
+| wikibooks | 1,183 | 49.5% | 151 | 359 | 70 | 5 |
+| stackexchange | 585 | 9.2% | 35 | 5 | 9 | 5 |
+
+The non-word check removes what it should: eye dialect in Gutenberg ("knowd", "nawthin",
+"gittin"), non-English passages in Wikibooks and Wikivoyage, and real typos ("tryed",
+"sucide", "wierd"). It also drops some correct technical prose with rare words
+("phenethylamine", "coagulopathy"). Wikivoyage and Wikibooks lose most to list items
+(`* ...` listings).
+
+**Spot check** (20 kept paragraphs per source). Wikinews, Gutenberg and Wikipedia read
+clean. Real-word errors already in the source get through, as expected, most often in
+Stack Exchange ("before resulting to", "pursue you Ph.D."), Wikibooks ("Larger organisms
+has more cells compare to", "postion") and Wikivoyage ("Kingston is also to the longest").
+Wikibooks still has a few dropped-link gaps the gap check cannot see ("It also has a, the
+viceroy"). FineWeb-Edu has occasional lost dashes ("fresh air-and"). Hence the smaller
+share for Wikibooks below.
+
+**Fetch commands for the agreed mix** (100,000 paragraphs; scale the limits together):
+
+```bash
+just cli corpus fetch --source wikipedia --limit 35000 --out data/raw/wikipedia.jsonl
+just cli corpus fetch --source gutenberg --limit 25000 --per-article 25 --out data/raw/gutenberg.jsonl
+just cli corpus fetch --source fineweb-edu --limit 20000 --out data/raw/fineweb-edu.jsonl
+just cli corpus fetch --source wikinews --limit 4000 --out data/raw/wikinews.jsonl
+just cli corpus fetch --source wikivoyage --limit 4000 --out data/raw/wikivoyage.jsonl
+just cli corpus fetch --source wikibooks --limit 2000 --out data/raw/wikibooks.jsonl
+just cli corpus fetch --source stackexchange --limit 10000 --out data/raw/stackexchange.jsonl
+```
+
+`--per-article 25` takes 1,000 books instead of 2,500 for Gutenberg, which streams about
+8,000 books (around 2 GB) instead of 20,000. The PoC's `data/raw/wiki.jsonl` predates the
+filter; remove it before `corrupt --in data/raw`, or it is read as well.
+
 ## Decisions
 
 | Decision | Assumption |
 | --- | --- |
-| Clean corpus for the PoC | English Wikipedia (`wikimedia/wikipedia`, CC BY-SA 4.0) through `datasets`; public-domain fiction can be added later for past-tense narration |
+| Clean corpus for the PoC | First run: English Wikipedia (`wikimedia/wikipedia`, CC BY-SA 4.0) through `datasets`. From the real-word runs on: Wikipedia 35%, Gutenberg fiction 25%, FineWeb-Edu 20%, Wikinews/Wikivoyage/Wikibooks 10%, Stack Exchange 10% (see [Corpus sources](#corpus-sources-2026-10-24)); BookCorpus, CC-News, OpenSubtitles and raw Reddit, email or forum text are avoided as clean text |
 | Hardware | Training on the RX 7900 XT with the `rocm` build; everything else on CPU |

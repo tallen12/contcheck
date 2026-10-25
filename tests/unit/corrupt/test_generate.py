@@ -3,6 +3,7 @@ import pytest
 from contcheck.corpus.documents import Document
 from contcheck.corpus.record import Split, revert_edits
 from contcheck.corrupt.config import GenConfig
+from contcheck.corrupt.confusables import hand_written_map
 from contcheck.corrupt.context import CorruptionContext
 from contcheck.corrupt.determiner import DeterminerCorruptor
 from contcheck.corrupt.edit import Edit
@@ -37,7 +38,9 @@ def registry(dictionary: FakeDictionary, inflector: FakeInflector) -> CorruptorR
     return CorruptorRegistry(
         [
             SpellingCorruptor(dictionary),
-            RealWordCorruptor(parse_confusion_sets(["then than", "form from", "to too"])),
+            RealWordCorruptor(
+                hand_written_map(parse_confusion_sets(["then than", "form from", "to too"]))
+            ),
             DeterminerCorruptor(),
             VerbTenseCorruptor(inflector),
         ]

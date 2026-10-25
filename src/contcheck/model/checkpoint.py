@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import torch
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from contcheck.model.hf_tokenizer import HuggingFaceTokenizer, load_tokenizer
 from contcheck.model.tagger import ContextTagger, encoder_config, encoder_from_config
@@ -29,10 +29,17 @@ class CheckpointInfo(BaseModel):
     labels: tuple[str, ...]
     use_doc: bool
     fuse_dim: int
-    window: int
-    stride: int
+    window: int = Field(ge=8)
+    stride: int = Field(ge=1)
     epoch: int
     val_f05: float
+
+    @model_validator(mode="after")
+    def _check_stride(self) -> CheckpointInfo:
+        # Inference windows come from these, so a gap would leave words unscored.
+        if self.stride > self.window - 2:
+            raise ValueError("stride must leave windows overlapping or touching")
+        return self
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +72,8 @@ def load_checkpoint(directory: Path, *, device: torch.device | str = "cpu") -> L
     info = CheckpointInfo.model_validate_json((directory / INFO).read_text(encoding="utf-8"))
     if info.labels != LABELS:
         raise ValueError(f"{directory} was trained with a different label set")
+    if info.use_doc:
+        raise ValueError(f"{directory} needs document vectors, which inference lacks until M4")
     encoder = encoder_from_config(encoder_config(str(directory / ENCODER)))
     model = ContextTagger(encoder, use_doc=info.use_doc, fuse_dim=info.fuse_dim)
     state = torch.load(directory / WEIGHTS, map_location=device, weights_only=True)

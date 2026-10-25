@@ -28,6 +28,7 @@ def test_load_reads_yaml(tmp_path: Path) -> None:
     assert config.weight(ErrorKind.SPELLING) == 3
     assert config.weight(ErrorKind.VERB_TENSE) == 1
     assert config.adjacent_share == 0.0
+    assert config.word_choice_share == 0.0
 
 
 def test_weight_is_zero_without_default() -> None:
@@ -51,6 +52,9 @@ def test_weight_is_zero_without_default() -> None:
         {"errors_per_paragraph": {-1: 1.0}},
         {"variants_per_paragraph": 0},
         {"adjacent_share": 1.5},
+        {"held_out_confusion_share": 1.0},
+        {"word_choice_share": -0.1},
+        {"word_choice_share": 1.5},
         {"extra": True},
     ],
 )

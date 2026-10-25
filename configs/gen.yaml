@@ -5,13 +5,26 @@ variants_per_paragraph: 2
 errors_per_paragraph: {0: 0.15, 1: 0.40, 2: 0.30, 3: 0.15}
 # Share of paragraphs with 2+ errors that get them on neighbouring words.
 adjacent_share: 0.1
+# Share of confusion pairs withheld from training, for the held-out check in `evaluate`.
+held_out_confusion_share: 0.2
+# Share of RealWord edits from the masked-LM word-choice corruptor (the rest use the
+# confusion sets); 0 skips loading the masked LM.
+word_choice_share: 0.5
+# roberta-large judges fit better than distilroberta-base (more clear errors, fewer
+# acceptable alternatives) at about 2.5x the cost; see the implementation plan, Phase 1b.
+word_choice_model: roberta-large
 # Relative weight per kind; kinds without a corruptor are skipped.
 kind_weights:
-  Spelling: 3
+  Spelling: 1  # non-words are the SymSpell pre-pass's; kept as input noise
   RealWord: 2
   VerbTense: 2
   SubjectVerbAgreement: 2
   Determiner: 2
+  VerbForm: 1.5
+  NounNumber: 1.5
+  AdjectiveAdverb: 1
   Preposition: 1.5
+  Conjunction: 1
+  PronounForm: 1
   Punctuation: 1.5
   default: 1

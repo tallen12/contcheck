@@ -1,6 +1,5 @@
 """The training loop: AdamW with warmup and linear decay, early stop on val F0.5."""
 
-import copy
 import random
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
@@ -45,6 +44,16 @@ def warmup_then_linear_decay(step: int, *, warmup: int, total: int) -> float:
     if step < warmup:
         return (step + 1) / warmup
     return max(0.0, (total - step) / max(1, total - warmup))
+
+
+def _snapshot(model: ContextTagger) -> dict[str, torch.Tensor]:
+    """A copy of the weights that later training steps do not change."""
+    state: dict[str, torch.Tensor] = {}
+    for name, value in model.state_dict().items():
+        if not isinstance(value, torch.Tensor):
+            raise TypeError(f"state entry {name} is not a tensor")
+        state[name] = value.detach().clone()
+    return state
 
 
 def training_windows(
@@ -122,10 +131,11 @@ def train(
     history: list[EpochReport] = []
     best_epoch = 0
     best_f05 = -1.0
-    best_state = copy.deepcopy(model.state_dict())
+    best_state: dict[str, torch.Tensor] | None = None
     for epoch in range(1, config.epochs + 1):
         model.train()
-        running = 0.0
+        # Summed on the device: calling .item() every step would wait for the GPU.
+        running = torch.zeros((), device=device)
         steps = 0
         batches = shuffled_batches(
             windows, batch_size=config.batch_size, pad_id=tokenizer.pad_id, rng=rng
@@ -141,10 +151,12 @@ def train(
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.max_grad_norm)
             optimizer.step()
             scheduler.step()
-            running += output.loss.item()
+            running += output.loss.detach()
             steps += 1
             if steps % config.log_every == 0:
-                log(f"epoch {epoch} step {steps}/{steps_per_epoch} loss {running / steps:.4f}")
+                mean = running.item() / steps
+                log(f"epoch {epoch} step {steps}/{steps_per_epoch} loss {mean:.4f}")
+        train_loss = running.item() / max(steps, 1)
 
         val = validate(
             model,
@@ -154,16 +166,19 @@ def train(
             device=device,
             name=f"epoch-{epoch}",
         )
-        history.append(EpochReport(epoch, running / max(steps, 1), val))
+        history.append(EpochReport(epoch, train_loss, val))
         log(
-            f"epoch {epoch}: loss {running / max(steps, 1):.4f}, val F0.5 {val.overall.f05:.4f}, "
+            f"epoch {epoch}: loss {train_loss:.4f}, val F0.5 {val.overall.f05:.4f}, "
             f"detection F0.5 {val.detection.f05:.4f}"
         )
         if val.overall.f05 > best_f05:
             best_f05 = val.overall.f05
             best_epoch = epoch
-            best_state = copy.deepcopy(model.state_dict())
+            best_state = _snapshot(model)
         elif epoch - best_epoch >= config.patience:
             log(f"stopping: no improvement since epoch {best_epoch}")
             break
+    if best_state is None:
+        # Epoch 1 always beats the starting score of -1, and epochs is at least 1.
+        raise RuntimeError("training ran no epochs")
     return TrainResult(best_epoch, best_state, tuple(history))
