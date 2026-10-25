@@ -11,6 +11,7 @@ from contcheck.corrupt.apply import (
     clashes,
     corrupt_paragraph,
     match_case,
+    touches,
     weighted_choice,
 )
 from contcheck.corrupt.config import GenConfig
@@ -127,15 +128,50 @@ def test_clashes_need_an_untouched_word_between(
     assert clashes(edit(*first), [edit(*second)]) is expected
 
 
-def test_apply_rejects_clashing_edits(analyzer: FakeAnalyzer) -> None:
+def test_apply_rejects_overlapping_edits(analyzer: FakeAnalyzer) -> None:
     ctx = context(analyzer, "a b c d")
     edits = [
-        Edit(0, 1, ErrorKind.SPELLING, R, ("a",), ("x",)),
+        Edit(0, 2, ErrorKind.SPELLING, R, ("a", "b"), ("x",)),
         Edit(1, 2, ErrorKind.SPELLING, R, ("b",), ("y",)),
     ]
 
     with pytest.raises(ValueError, match="clashes"):
         apply_edits(ctx, edits)
+
+
+def test_neighbouring_edits_get_separate_spans(analyzer: FakeAnalyzer) -> None:
+    ctx = context(analyzer, "the libary tomorrow is open")
+    edits = [
+        Edit(1, 2, ErrorKind.SPELLING, R, ("libary",), ("libbary",)),
+        Edit(2, 3, ErrorKind.SPELLING, R, ("tomorrow",), ("tomorow",)),
+    ]
+
+    result = apply_edits(ctx, edits)
+
+    assert result.labels == ("O", "B-Spelling", "B-Spelling", "O", "O")
+    assert revert_edits(result.words, result.edits) == ctx.words
+
+
+def test_missing_edits_never_touch(analyzer: FakeAnalyzer) -> None:
+    ctx = context(analyzer, "I saw the dog")
+    edits = [
+        Edit(1, 2, ErrorKind.SPELLING, R, ("saw",), ("sav",)),
+        Edit(2, 3, ErrorKind.DETERMINER, M, ("the",), ()),
+    ]
+
+    with pytest.raises(ValueError, match="clashes"):
+        apply_edits(ctx, edits)
+
+
+def test_touching_is_allowed_only_on_request() -> None:
+    first = Edit(1, 2, ErrorKind.SPELLING, R, ("a",), ("x",))
+    neighbour = Edit(2, 3, ErrorKind.SPELLING, R, ("b",), ("y",))
+    apart = Edit(4, 5, ErrorKind.SPELLING, R, ("c",), ("z",))
+
+    assert clashes(neighbour, [first])
+    assert not clashes(neighbour, [first], allow_touching=True)
+    assert touches(neighbour, [first])
+    assert not touches(apart, [first])
 
 
 def test_revert_restores_clean_words(analyzer: FakeAnalyzer) -> None:
@@ -233,3 +269,34 @@ def test_zero_errors_leaves_the_paragraph_clean(analyzer: FakeAnalyzer, rng: ran
     assert result.words == ctx.words
     assert set(result.labels) == {"O"}
     assert result.edits == ()
+
+
+def test_adjacent_paragraphs_get_neighbouring_edits(
+    analyzer: FakeAnalyzer, rng: random.Random
+) -> None:
+    ctx = context(analyzer, "a b c d e f g h")
+    script: list[Edit | None] = [
+        Edit(2, 3, ErrorKind.SPELLING, R, ("c",), ("x",)),
+        Edit(6, 7, ErrorKind.SPELLING, R, ("g",), ("y",)),
+        Edit(3, 4, ErrorKind.SPELLING, R, ("d",), ("z",)),
+    ]
+    registry = CorruptorRegistry([Scripted(ErrorKind.SPELLING, script)])
+    adjacent = config(2, {"Spelling": 1}).model_copy(update={"adjacent_share": 1.0})
+
+    edits = choose_edits(ctx, registry, adjacent, rng)
+
+    assert [(e.start, e.end) for e in edits] == [(2, 3), (3, 4)]
+
+
+def test_adjacent_mode_falls_back_to_separate_edits(
+    analyzer: FakeAnalyzer, rng: random.Random
+) -> None:
+    ctx = context(analyzer, "a b c d e f g h")
+    far: list[Edit | None] = [Edit(6, 7, ErrorKind.SPELLING, R, ("g",), ("y",))] * 30
+    script = [Edit(2, 3, ErrorKind.SPELLING, R, ("c",), ("x",)), *far]
+    registry = CorruptorRegistry([Scripted(ErrorKind.SPELLING, script)])
+    adjacent = config(2, {"Spelling": 1}).model_copy(update={"adjacent_share": 1.0})
+
+    edits = choose_edits(ctx, registry, adjacent, rng)
+
+    assert [(e.start, e.end) for e in edits] == [(2, 3), (6, 7)]
