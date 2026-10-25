@@ -5,6 +5,8 @@ variants_per_paragraph: 2
 errors_per_paragraph: {0: 0.15, 1: 0.40, 2: 0.30, 3: 0.15}
 # Share of paragraphs with 2+ errors that get them on neighbouring words.
 adjacent_share: 0.1
+# Share of confusion pairs withheld from training, for the held-out check in `evaluate`.
+held_out_confusion_share: 0.2
 # Relative weight per kind; kinds without a corruptor are skipped.
 kind_weights:
   Spelling: 1  # non-words are the SymSpell pre-pass's; kept as input noise

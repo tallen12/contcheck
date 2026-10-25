@@ -175,6 +175,24 @@ misspellings like the ones above, so that rule should be revisited.
 The first run's model and data are kept locally as `runs/baseline-v1` and
 `data/synthetic-v1`.
 
+## Held-out confusion check (2026-10-24)
+
+Does the tagger judge whether a word fits, or memorize the confusion pairs it trained on?
+`held_out_confusion_share: 0.2` withheld a fifth of the ~50 hand-written confusion sets'
+pairs from the RealWord corruptor. The data was regenerated and the model retrained (3
+epochs, best at epoch 3, val F0.5 0.807). `evaluate` then swapped partners into val text:
+
+| Probe | Flagged | Flagged as RealWord | Probes |
+| --- | --- | --- | --- |
+| Pairs seen in training | 0.930 | 0.924 | 1,041 |
+| Pairs withheld from training | 0.245 | 0.161 | 347 |
+
+**Reading:** the model memorizes pairs. RealWord F0.5 on synthetic val is 0.974, but a
+wrong word from a pair it has not seen is caught a quarter of the time. This is the
+baseline the broader real-word generators (generated confusables, masked-LM
+substitutions, closed-class and inflection kinds) have to move. The held-out number,
+not synthetic val, is the one to watch.
+
 ## Decisions
 
 | Decision | Assumption |

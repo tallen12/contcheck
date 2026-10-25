@@ -51,6 +51,7 @@ def test_weight_is_zero_without_default() -> None:
         {"errors_per_paragraph": {-1: 1.0}},
         {"variants_per_paragraph": 0},
         {"adjacent_share": 1.5},
+        {"held_out_confusion_share": 1.0},
         {"extra": True},
     ],
 )

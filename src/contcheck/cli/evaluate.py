@@ -1,21 +1,26 @@
 """``contcheck evaluate``: score a checkpoint and the SymSpell baseline."""
 
+from collections.abc import Sequence
 from itertools import islice
 from pathlib import Path
 
+from contcheck.cli.corrupt import confusion_split
 from contcheck.cli.device import choose_device, describe, visible_gpus
 from contcheck.corpus.jsonl import read_jsonl
 from contcheck.corpus.record import Record
+from contcheck.corrupt.config import load_gen_config
 from contcheck.model.checkpoint import load_checkpoint
 from contcheck.model.tagger import TorchTagger
 from contcheck.spelling.symspell_dictionary import load_symspell_dictionary
+from contcheck.taxonomy.kinds import ErrorKind
 from contcheck.training.evaluate import (
     append_result,
     evaluate_tagger,
     format_result,
     symspell_baseline,
 )
-from contcheck.training.misspellings import build_probes, load_misspellings
+from contcheck.training.misspellings import load_misspellings
+from contcheck.training.probes import CheckName, ProbeSet, substitution_probes
 
 BATCH_SIZE = 64
 
@@ -28,11 +33,13 @@ def evaluate(
     device: str | None = None,
     baseline: bool = True,
     limit: int | None = None,
+    gen_config: Path = Path("configs/gen.yaml"),
 ) -> None:
     """Print per-kind scores for a checkpoint on a record file and log them.
 
-    Also runs the real-misspelling check: common misspellings from a bundled list are
-    swapped into the records' correct words, and the share flagged as Spelling is shown.
+    Also runs the probe checks: words in the records are swapped for common real
+    misspellings, for confusion partners withheld from training, and for partners seen in
+    training, and the share flagged is shown for each.
 
     Parameters
     ----------
@@ -48,12 +55,15 @@ def evaluate(
         Also score the SymSpell-only baseline.
     limit
         Use only the first ``limit`` records.
+    gen_config
+        Generation config the training data was made with; it defines which confusion
+        pairs were withheld for the held-out check.
     """
     records = list(islice(read_jsonl(data, Record), limit))
     gpus = visible_gpus()
     chosen = choose_device(device, gpus)
     print(describe(chosen, gpus))
-    probes = build_probes(records, load_misspellings())
+    checks = build_checks(records, gen_config=gen_config)
     loaded = load_checkpoint(checkpoint, device=chosen)
     result = evaluate_tagger(
         records,
@@ -64,14 +74,32 @@ def evaluate(
         batch_size=BATCH_SIZE,
         name=str(checkpoint),
         dataset=str(data),
-        probes=probes,
+        checks=checks,
     )
     print(format_result(result))
     append_result(results, result)
     if baseline:
         reference = symspell_baseline(
-            records, dictionary=load_symspell_dictionary(), dataset=str(data), probes=probes
+            records, dictionary=load_symspell_dictionary(), dataset=str(data), checks=checks
         )
         print()
         print(format_result(reference))
         append_result(results, reference)
+
+
+def build_checks(records: Sequence[Record], *, gen_config: Path) -> dict[CheckName, ProbeSet]:
+    """The probe sets for every check, built from ``records``."""
+    split = confusion_split(load_gen_config(gen_config))
+    checks = {
+        CheckName.REAL_MISSPELLINGS: ProbeSet(
+            ErrorKind.SPELLING, substitution_probes(records, load_misspellings())
+        ),
+        CheckName.SEEN_CONFUSIONS: ProbeSet(
+            ErrorKind.REAL_WORD, substitution_probes(records, split.train)
+        ),
+    }
+    if split.held_out:
+        checks[CheckName.HELD_OUT_CONFUSIONS] = ProbeSet(
+            ErrorKind.REAL_WORD, substitution_probes(records, split.held_out)
+        )
+    return checks
