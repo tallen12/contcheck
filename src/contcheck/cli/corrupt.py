@@ -1,31 +1,62 @@
 """``contcheck corrupt``: generate rule-based training data."""
 
+from collections.abc import Callable
 from itertools import islice
 from pathlib import Path
 
 from contcheck.analysis.lemminflect_inflector import LemmInflector
+from contcheck.analysis.lemminflect_lemmatizer import LemmInflectLemmatizer
 from contcheck.analysis.spacy_analyzer import load_spacy_analyzer
 from contcheck.corpus.documents import SplitShares, group_documents
 from contcheck.corpus.jsonl import write_jsonl
 from contcheck.corpus.readers import read_paragraphs
 from contcheck.corrupt.agreement import AgreementCorruptor
 from contcheck.corrupt.config import load_gen_config
+from contcheck.corrupt.confusables import (
+    Confusion,
+    ConfusionMap,
+    build_confusion_map,
+    load_homophone_groups,
+)
 from contcheck.corrupt.determiner import DeterminerCorruptor
 from contcheck.corrupt.generate import generate_records
 from contcheck.corrupt.real_word import RealWordCorruptor, load_confusion_sets
 from contcheck.corrupt.registry import CorruptorRegistry
 from contcheck.corrupt.spelling import SpellingCorruptor
 from contcheck.corrupt.verb_tense import VerbTenseCorruptor
-from contcheck.spelling.symspell_dictionary import load_symspell_dictionary
+from contcheck.spelling.symspell_dictionary import SymSpellDictionary, load_symspell_dictionary
 
 
-def build_registry() -> CorruptorRegistry:
-    """Every corruptor the proof of concept has, wired to the real adapters."""
+def load_confusions(dictionary: SymSpellDictionary) -> ConfusionMap:
+    """Hand-written, homophone and look-alike confusions over the SymSpell word list."""
+    return build_confusion_map(
+        frequencies=dictionary.frequencies(),
+        dictionary=dictionary,
+        lemmatizer=LemmInflectLemmatizer(),
+        confusion_sets=load_confusion_sets(),
+        homophones=load_homophone_groups(),
+    )
+
+
+def keep_every_confusion(confusion: Confusion) -> bool:
+    """The default confusion filter: use them all."""
+    del confusion
+    return True
+
+
+def build_registry(
+    *, keep_confusion: Callable[[Confusion], bool] = keep_every_confusion
+) -> CorruptorRegistry:
+    """Every corruptor the proof of concept has, wired to the real adapters.
+
+    ``keep_confusion`` drops RealWord pairs, for example those held out for evaluation.
+    """
     inflector = LemmInflector()
+    dictionary = load_symspell_dictionary()
     return CorruptorRegistry(
         [
-            SpellingCorruptor(load_symspell_dictionary()),
-            RealWordCorruptor(load_confusion_sets()),
+            SpellingCorruptor(dictionary),
+            RealWordCorruptor(load_confusions(dictionary).filter(keep_confusion)),
             DeterminerCorruptor(),
             VerbTenseCorruptor(inflector),
             AgreementCorruptor(inflector),

@@ -24,3 +24,11 @@ class Inflector(Protocol):
     def inflect(self, lemma: str, tag: str) -> tuple[str, ...]:
         """Return the forms of ``lemma`` for ``tag``, most common first; empty if none."""
         ...
+
+
+class Lemmatizer(Protocol):
+    """Knows which lemmas a word form can belong to, out of context."""
+
+    def lemmas(self, word: str) -> frozenset[str]:
+        """Every lemma ``word`` can have; empty when it is not a known English word."""
+        ...

@@ -1,8 +1,11 @@
 """RealWord: swap a word for a real word it is often confused with."""
 
-from collections.abc import Iterable, Mapping
+from bisect import bisect_right
+from collections.abc import Iterable, Sequence
 from importlib.resources import files
+from itertools import accumulate
 
+from contcheck.corrupt.confusables import ConfusionMap
 from contcheck.corrupt.context import CorruptionContext
 from contcheck.corrupt.edit import Edit
 from contcheck.corrupt.protocols import Rng
@@ -36,19 +39,45 @@ def load_confusion_sets() -> dict[str, tuple[str, ...]]:
     return parse_confusion_sets(text.splitlines())
 
 
+def weighted_index(weights: Sequence[float], rng: Rng) -> int:
+    """An index into ``weights``, drawn in proportion to its weight."""
+    totals = list(accumulate(weights))
+    return min(bisect_right(totals, rng.random() * totals[-1]), len(totals) - 1)
+
+
+def match_case(word: str, template: str) -> str:
+    """``word`` cased like ``template``: all capitals, a capital first letter or as is."""
+    if len(template) > 1 and template.isupper():
+        return word.upper()
+    if template[:1].isupper():
+        return word[:1].upper() + word[1:]
+    return word
+
+
 class RealWordCorruptor:
-    """Replaces a word from a confusion set by another member, such as then for than."""
+    """Replaces a word by one it is often confused with, such as then for than.
+
+    A confusable word type in the paragraph is drawn by its total weight, so a word that
+    occurs five times is not five times as likely; then one of its occurrences, then an
+    alternative by weight. The alternative takes the original's capitalization.
+    """
 
     kind = ErrorKind.REAL_WORD
 
-    def __init__(self, confusions: Mapping[str, tuple[str, ...]]) -> None:
+    def __init__(self, confusions: ConfusionMap) -> None:
         self._confusions = confusions
 
     def corrupt(self, context: CorruptionContext, rng: Rng) -> Edit | None:
-        sites = [i for i, word in enumerate(context.words) if word.lower() in self._confusions]
+        sites: dict[str, list[int]] = {}
+        for i, word in enumerate(context.words):
+            if self._confusions.alternatives(word):
+                sites.setdefault(word.lower(), []).append(i)
         if not sites:
             return None
-        i = rng.choice(sites)
+        types = list(sites)
+        chosen = types[weighted_index([self._confusions.weight(t) for t in types], rng)]
+        i = rng.choice(sites[chosen])
         word = context.words[i]
-        new = rng.choice(self._confusions[word.lower()])
-        return Edit(i, i + 1, self.kind, Operation.REPLACEMENT, (word,), (new,))
+        alternatives = self._confusions.alternatives(word)
+        new = alternatives[weighted_index([c.weight for c in alternatives], rng)].alternative
+        return Edit(i, i + 1, self.kind, Operation.REPLACEMENT, (word,), (match_case(new, word),))
