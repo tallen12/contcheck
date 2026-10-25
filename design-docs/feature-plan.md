@@ -175,7 +175,7 @@ corpus annotation (Wave 3). Then, in parallel:
 | --- | --- | --- | --- | --- |
 | F20 | LLM client (done early) | `llm` | — | `LLMClient` over the OpenAI-compatible `/v1/chat/completions` API: base URL and model, optional Bearer key from an environment variable, timeout, retries with backoff on connection errors, 429, 500, 502, 503 and 504, a concurrency limit, JSON-schema replies, and reasoning turned off on servers that take `reasoning_effort` (opt-in, since others reject it). Unit tests on `httpx.MockTransport`; an `llm` test against a running server |
 | F21 | Generation, relabeling and filters | `llm_gen` | C5, F5 | Prompt per paragraph and profile, `n` sampled 1–4, ERRANT relabel ignoring the LLM's own description, filters (1–6 edits, length ratio 0.9–1.1, character similarity ≥ 0.85, no unmapped types, no chatter), `contcheck generate` with resumable output |
-| F22 | Data mix | `corpus` | F11, F21 | Rule/LLM mix ratio in `merge` (start 70/30), then the rule-only vs rule+LLM comparison on real eval data. **Ends M5** |
+| F22 | Fine-tuning stage | `training` | F16, F21 | Verification of each LLM-written edit, then `contcheck train` from a stage-1 checkpoint on the verified set with stage-1 replay, and stage 1 vs stage 1 plus fine-tuning on real eval data; judge-checked hard examples as a follow-up ([training-stages.md](training-stages.md)). **Ends M5** |
 
 ### Wave 9: M6 CPU inference (`feat/m6-cpu-inference`)
 
@@ -230,7 +230,7 @@ flowchart LR
   F3 --> F18
   F18 & F16 & F17 --> F19
   F5 --> F21
-  F11 & F21 --> F22
+  F16 & F21 --> F22
   F14 --> F23
   F15 --> F24
   F23 & F24 --> F25
