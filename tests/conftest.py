@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from contcheck.analysis.models import AnalyzedText, Token
+from contcheck.annotation.models import Annotated, Annotation, Unmappable
 from contcheck.corpus.record import EditRecord, Record, RecordSource, Split
 from contcheck.llm.models import ChatMessage, ChatOptions, LLMError
 from contcheck.model.models import Encoding
@@ -157,6 +158,53 @@ class FakeDictionary:
         return sorted(found, key=lambda s: (s.distance, -s.frequency, s.term))
 
 
+class FakeAnnotator:
+    """An ``Annotator`` that finds one edit: the words between the common prefix and suffix.
+
+    The edit's kind comes from ``kinds``, keyed by the lowercase clean words, else RealWord;
+    pairs whose clean words are in ``unmappable`` come back as ``Unmappable``.
+    """
+
+    def __init__(
+        self,
+        kinds: Mapping[tuple[str, ...], ErrorKind] | None = None,
+        unmappable: frozenset[tuple[str, ...]] = frozenset(),
+    ) -> None:
+        self._kinds = kinds or {}
+        self._unmappable = unmappable
+
+    def annotate(self, noisy: Sequence[str], clean: Sequence[str]) -> Annotation:
+        start = 0
+        while start < min(len(noisy), len(clean)) and noisy[start] == clean[start]:
+            start += 1
+        noisy_end, clean_end = len(noisy), len(clean)
+        while (
+            noisy_end > start and clean_end > start and noisy[noisy_end - 1] == clean[clean_end - 1]
+        ):
+            noisy_end -= 1
+            clean_end -= 1
+        orig = tuple(clean[start:clean_end])
+        if noisy_end == start and not orig:
+            return Annotated(())
+        key = tuple(word.lower() for word in orig)
+        if key in self._unmappable:
+            return Unmappable("R:OTHER", tuple(noisy[start:noisy_end]), orig, "fake")
+        if noisy_end == start:
+            op = Operation.MISSING
+        elif not orig:
+            op = Operation.UNNECESSARY
+        else:
+            op = Operation.REPLACEMENT
+        kind = self._kinds.get(key, ErrorKind.REAL_WORD)
+        return Annotated((EditRecord(start=start, end=noisy_end, kind=kind, op=op, orig=orig),))
+
+    def annotate_many(
+        self, pairs: Iterable[tuple[Sequence[str], Sequence[str]]]
+    ) -> Iterator[Annotation]:
+        for noisy, clean in pairs:
+            yield self.annotate(noisy, clean)
+
+
 def edit_distance(a: str, b: str) -> int:
     """Levenshtein distance between ``a`` and ``b``."""
     previous: list[int] = list(range(len(b) + 1))
@@ -254,6 +302,11 @@ def inflector() -> FakeInflector:
 @pytest.fixture
 def dictionary() -> FakeDictionary:
     return FakeDictionary()
+
+
+@pytest.fixture
+def annotator() -> FakeAnnotator:
+    return FakeAnnotator()
 
 
 @pytest.fixture

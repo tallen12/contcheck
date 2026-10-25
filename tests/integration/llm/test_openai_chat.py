@@ -27,6 +27,8 @@ def config() -> ClientConfig:
         model=os.environ.get("CONTCHECK_LLM_MODEL", "qwen3:8b"),
         api_key=key if key else None,
         retries=1,
+        # The test targets Ollama, which takes reasoning_effort.
+        reasoning_switch=True,
     )
 
 

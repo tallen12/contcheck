@@ -4,14 +4,18 @@ from pathlib import Path
 import pytest
 
 from contcheck.analysis.protocols import Inflector, TextAnalyzer
-from contcheck.corpus.record import Record
+from contcheck.annotation.models import Annotated
+from contcheck.annotation.protocols import Annotator
+from contcheck.corpus.record import EditRecord, Record
 from contcheck.corrupt.protocols import Rng
 from contcheck.llm.models import ChatMessage, ChatOptions, LLMError, Role
 from contcheck.llm.protocols import LLMClient
 from contcheck.model.checkpoint import load_checkpoint
 from contcheck.spelling.protocols import Dictionary
+from contcheck.taxonomy.kinds import ErrorKind, Operation
 from tests.conftest import (
     FakeAnalyzer,
+    FakeAnnotator,
     FakeDictionary,
     FakeInflector,
     FakeLLMClient,
@@ -23,16 +27,33 @@ def test_fakes_implement_their_protocols(
     analyzer: FakeAnalyzer,
     inflector: FakeInflector,
     dictionary: FakeDictionary,
+    annotator: FakeAnnotator,
     rng: random.Random,
 ) -> None:
-    implementations: tuple[TextAnalyzer, Inflector, Dictionary, Rng] = (
+    implementations: tuple[TextAnalyzer, Inflector, Dictionary, Annotator, Rng] = (
         analyzer,
         inflector,
         dictionary,
+        annotator,
         rng,
     )
 
-    assert len(implementations) == 4
+    assert len(implementations) == 5
+
+
+def test_fake_annotator_finds_missing_unnecessary_and_unchanged_spans(
+    annotator: FakeAnnotator,
+) -> None:
+    missing = annotator.annotate(("a", "dog"), ("a", "big", "dog"))
+    extra = annotator.annotate(("a", "big", "dog"), ("a", "dog"))
+
+    assert missing == Annotated(
+        (EditRecord(start=1, end=1, kind=ErrorKind.REAL_WORD, op=Operation.MISSING, orig=("big",)),)
+    )
+    assert extra == Annotated(
+        (EditRecord(start=1, end=2, kind=ErrorKind.REAL_WORD, op=Operation.UNNECESSARY, orig=()),)
+    )
+    assert annotator.annotate(("a",), ("a",)) == Annotated(())
 
 
 def test_fake_analyzer_tags_from_the_lexicon_and_keeps_spacing(analyzer: FakeAnalyzer) -> None:

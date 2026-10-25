@@ -1,7 +1,8 @@
 """``LLMClient`` over an OpenAI-compatible ``/chat/completions`` API (Ollama, llama.cpp, vLLM).
 
 Tested against Ollama 0.24, whose OpenAI-compatible endpoint ignores Ollama's own
-``think`` flag but honours ``reasoning_effort: "none"``.
+``think`` flag but honours ``reasoning_effort: "none"``; that field is only sent when
+``ClientConfig.reasoning_switch`` is set.
 """
 
 import threading
@@ -16,12 +17,14 @@ from contcheck.llm.models import ChatCompletion, ChatMessage, ChatOptions, Clien
 COMPLETIONS_PATH = "chat/completions"
 RETRY_AFTER = "Retry-After"
 TOO_MANY_REQUESTS = 429
+# 501, 505 and other 5xx never succeed on a retry.
+TRANSIENT_STATUSES = frozenset({TOO_MANY_REQUESTS, 500, 502, 503, 504})
 
 
 class OpenAIChatClient:
     """Sends each chat to ``{base_url}/chat/completions`` and returns the first choice.
 
-    Retries connection errors, timeouts, 429 and 5xx replies with exponential backoff (or
+    Retries connection errors, timeouts, 429, 500, 502, 503 and 504 with exponential backoff (or
     the server's ``Retry-After``); other 4xx replies fail at once. A semaphore keeps at
     most ``config.concurrency`` requests in flight across threads.
     """
@@ -41,7 +44,12 @@ class OpenAIChatClient:
 
     def complete(self, messages: Sequence[ChatMessage], *, options: ChatOptions) -> str:
         """The model's reply text to ``messages``; raises ``LLMError`` when retries run out."""
-        body = request_body(self._config.model, messages, options)
+        body = request_body(
+            self._config.model,
+            messages,
+            options,
+            reasoning_switch=self._config.reasoning_switch,
+        )
         headers = auth_headers(self._config.api_key)
         last_problem = "no attempt made"
         retry_after: float | None = None
@@ -72,9 +80,17 @@ class OpenAIChatClient:
 
 
 def request_body(
-    model: str, messages: Sequence[ChatMessage], options: ChatOptions
+    model: str,
+    messages: Sequence[ChatMessage],
+    options: ChatOptions,
+    *,
+    reasoning_switch: bool = False,
 ) -> dict[str, object]:
-    """The JSON body of a ``/chat/completions`` request."""
+    """The JSON body of a ``/chat/completions`` request.
+
+    ``reasoning_effort: "none"`` is added only with ``reasoning_switch``, for servers
+    known to take it.
+    """
     body: dict[str, object] = {
         "model": model,
         "messages": [{"role": m.role.value, "content": m.content} for m in messages],
@@ -88,7 +104,7 @@ def request_body(
             "type": "json_schema",
             "json_schema": {"name": options.schema_name, "schema": dict(options.json_schema)},
         }
-    if not options.think:
+    if reasoning_switch and not options.think:
         body["reasoning_effort"] = "none"
     return body
 
@@ -99,7 +115,7 @@ def auth_headers(api_key: str | None) -> dict[str, str]:
 
 
 def _retryable(status: int) -> bool:
-    return status == TOO_MANY_REQUESTS or status >= 500
+    return status in TRANSIENT_STATUSES
 
 
 def _retry_after(response: httpx.Response) -> float | None:
