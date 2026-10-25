@@ -58,7 +58,7 @@ SPELLING_VARIANTS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"ys(e|ed|es|ing)$"), r"yz\1"),
     (re.compile(r"([bt])re(s?)$"), r"\1er\2"),
     (re.compile(r"ogue(s?)$"), r"og\1"),
-    (re.compile(r"ll(ed|ing|er|ers)$"), r"l\1"),
+    (re.compile(r"ll(ed|ing|er|ers|or|ors)$"), r"l\1"),
     (re.compile(r"ence(s?)$"), r"ense\1"),
     (re.compile(r"dgement(s?)$"), r"dgment\1"),
     (re.compile(r"^grey"), "gray"),

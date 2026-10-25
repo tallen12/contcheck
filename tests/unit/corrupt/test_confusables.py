@@ -186,6 +186,7 @@ def test_same_stem(a: str, b: str, expected: bool) -> None:
         ("centre", "center"),
         ("fibre", "fiber"),
         ("travelled", "traveled"),
+        ("counsellor", "counselor"),
         ("defence", "defense"),
         ("catalogue", "catalog"),
         ("judgement", "judgment"),
