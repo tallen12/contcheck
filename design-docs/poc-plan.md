@@ -106,6 +106,33 @@ Synthetic scores overstate real-world quality (implementation plan, Phase 4). Th
 proves the pipeline works end to end; M3's evaluation on real human errors judges the
 model.
 
+## First run (2026-10-24)
+
+Measured on the dev machine with `configs/gen.yaml` and `configs/train.yaml` as committed.
+
+- **Data:** 60,000 Wikipedia paragraphs from 10,222 articles; `corrupt` wrote 120,000
+  records in 3.5 minutes on CPU; after `merge`, 106,291 train, 5,829 val and 6,098 test
+  records, with no round-trip failures.
+- **Training:** 106,968 windows on the RX 7900 XT with bfloat16 autocast. Val F0.5 peaked
+  after epoch 1 (0.829) and fell after epoch 2 (0.821), so early stopping kept epoch 1. The
+  whole run, two epochs with validation after each, took 5 minutes 20 seconds.
+- **Synthetic val, span-level F0.5:**
+
+  | Kind | Tagger | SymSpell only |
+  | --- | --- | --- |
+  | Spelling | 0.884 | 0.453 |
+  | RealWord | 0.960 | — |
+  | SubjectVerbAgreement | 0.881 | — |
+  | VerbTense | 0.740 | — |
+  | Determiner | 0.644 | — |
+  | Overall | 0.829 | 0.377 |
+
+  Detection-only F0.5 was 0.831, and the tagger made 4.4 false alarms per 1,000 clean words
+  (SymSpell: 7.7).
+- **Hand-written sentences:** `tag` flagged the error in one sentence per kind and in the
+  example above (`go`, `buyed`, `there`), and flagged nothing in any corrected version. It
+  also made one extra flag, Determiner at 0.53 on a correct word in the VerbTense sentence.
+
 ## Decisions
 
 | Decision | Assumption |
