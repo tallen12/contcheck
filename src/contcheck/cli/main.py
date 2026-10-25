@@ -9,14 +9,18 @@ from importlib.metadata import version
 
 from cyclopts import App
 
+from contcheck.cli.corpus import build_corpus_app
+
 
 def build_app() -> App:
     """Build the root app with every command registered."""
-    return App(
+    app = App(
         name="contcheck",
         help="Context-aware spelling and grammar tagger.",
         version=version("contcheck"),
     )
+    app.command(build_corpus_app())
+    return app
 
 
 def main(argv: Sequence[str] | None = None) -> None:
