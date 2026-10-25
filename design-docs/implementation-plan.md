@@ -111,7 +111,12 @@ Train on synthetic errors from two generators, and keep real human errors for ev
 One function per kind, each returning `(new_words, edit)` so labels are exact by construction.
 
 - **Spelling:** keyboard-adjacent substitution, transposition, deletion, doubling, phonetic swaps (ph↔f, ie↔ei). Non-word misspellings are caught by the SymSpell pre-pass, not the tagger: the PoC showed a dictionary-less model cannot tell a plausible misspelling (occured, seperate) from a rare correct word. Spelling corruption stays in the data so the tagger is robust to typos, with a low weight; the tagger's effort goes to errors made of real words.
-- **RealWord:** confusion sets (their/there/they're, then/than, form/from, affect/effect, …).
+- **RealWord:** swap a word for a real word it is easily confused with. A few dozen hand-written sets would let the model memorize pairs, so the confusions are generated (`corrupt/confusables.py`), deterministically, when `contcheck corrupt` starts (about 3 s):
+  - *hand-written sets* (their/there, then/than, affect/effect, …), kept and weighted highest;
+  - *homophones* from the CMU Pronouncing Dictionary (BSD-2-Clause), first pronunciations only, bundled as `corrupt/data/homophones.txt` and rebuilt with `scripts/build_homophones.py`;
+  - *look-alikes*: among the 25,000 most frequent SymSpell words, pairs one edit apart, or two when both have 8+ letters (at a quarter of the weight).
+
+  Generated pairs drop forms of one lemma (the inflection corruptors' job), one word extending the other or a shared long stem (invented/inventor), British/American spellings, one-letter words, and words lemminflect does not know (names, abbreviations). A pair's weight is its source weight times `1 + log10` of its rarer word's frequency over the vocabulary's lowest; each word keeps its eight heaviest alternatives, scaled to a total of at most 3. The corruptor draws a confusable word *type* by weight (so repeated function words are not favoured), then an occurrence, then an alternative, and keeps the original's capitalization. `ConfusionMap.filter` (and `build_registry(keep_confusion=...)`) removes pairs, such as a held-out split, before they reach the corruptor. Expect some label noise: look-alikes where both words fit the context (now/not, fired/hired).
 - **VerbTense / VerbForm / SubjectVerbAgreement:** spaCy POS + `lemminflect` to re-inflect one verb (VBD→VBZ, VBZ→VBP, VBN→VBD). For tense, pick verbs in documents whose tense histogram is >80% one tense, so the error is detectable.
 - **Determiner / Preposition:** delete, insert, or swap from a closed set.
 - **NounNumber, Capitalization, Apostrophe, WordBoundary, Punctuation, ExtraWord, MissingWord, WordOrder:** simple token operations.
