@@ -12,6 +12,7 @@ from cyclopts import App
 from contcheck.cli.corpus import build_corpus_app, merge, report
 from contcheck.cli.corrupt import corrupt
 from contcheck.cli.evaluate import evaluate
+from contcheck.cli.tag import tag
 from contcheck.cli.train import train
 
 
@@ -28,6 +29,7 @@ def build_app() -> App:
     app.command(report)
     app.command(train)
     app.command(evaluate)
+    app.command(tag)
     return app
 
 
