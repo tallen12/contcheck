@@ -1,0 +1,95 @@
+# Common real misspellings for the evaluation check, as "correct: misspelling ...".
+# Every misspelling must be a non-word for the SymSpell dictionary (an integration
+# test checks this). Used only for evaluation, never for training.
+absence: absense abscence
+accidentally: accidently
+accommodate: accomodate acommodate
+achieve: acheive
+acquire: aquire
+across: accross
+address: adress
+apparent: apparant aparent
+appearance: appearence
+argument: arguement
+assassination: assasination
+basically: basicly
+because: becuase becasue
+beginning: begining
+believe: beleive belive
+business: buisness
+category: catagory
+cemetery: cemetary
+certain: certian
+colleague: collegue
+coming: comming
+committee: commitee comittee
+completely: completly
+conscious: concious
+definitely: definately definatly
+describe: discribe
+different: diffrent
+disappear: dissapear
+disappoint: dissapoint
+embarrass: embarass
+environment: enviroment
+especially: especialy
+exaggerate: exagerate
+existence: existance
+experience: experiance
+familiar: familar
+finally: finaly
+foreign: foriegn
+forty: fourty
+friend: freind
+government: goverment
+grammar: grammer
+guarantee: garantee
+happened: happend
+harass: harrass
+immediately: immediatly
+independent: independant
+interrupt: interupt
+knowledge: knowlege
+library: libary
+license: lisence
+maintenance: maintainance maintenence
+millennium: millenium
+necessary: neccessary necesary
+noticeable: noticable
+occasion: occassion ocasion
+occurred: occured
+occurrence: occurence
+particularly: particulary
+persistent: persistant
+possession: posession
+preferred: prefered
+privilege: privelege priviledge
+probably: probly probaly
+professor: proffesor
+publicly: publically
+really: realy
+receive: recieve
+recommend: recomend reccomend
+referred: refered
+relevant: relevent
+religious: religous
+remember: rember
+resistance: resistence
+restaurant: restaraunt
+rhythm: rythm
+schedule: schedual
+separate: seperate
+successful: succesful sucessful
+surprise: suprise
+temperature: temperture
+tendency: tendancy
+together: togehter
+tomorrow: tomorow tommorrow tommorow
+tongue: tounge
+truly: truely
+until: untill
+unfortunately: unfortunatly
+usually: usualy
+weird: wierd
+which: wich
+writing: writting

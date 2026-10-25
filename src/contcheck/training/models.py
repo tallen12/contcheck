@@ -62,3 +62,7 @@ class EvalResult(BaseModel):
     clean_words: int
     false_alarms_per_1000: float
     """Spans flagged per 1,000 words of paragraphs that have no errors."""
+    natural_misspellings: int = 0
+    """Probes in the real-misspelling check; 0 when it was not run."""
+    natural_misspelling_recall: float = 0.0
+    """Share of real misspellings flagged as Spelling in the check."""

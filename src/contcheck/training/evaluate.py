@@ -11,6 +11,7 @@ from contcheck.spelling.protocols import Dictionary
 from contcheck.taxonomy.bio import WordSpan, labels_to_spans
 from contcheck.taxonomy.kinds import ErrorKind
 from contcheck.training.metrics import ParagraphSpans, score
+from contcheck.training.misspellings import MisspellingProbe, probe_recall
 from contcheck.training.models import EvalResult, Scores
 
 
@@ -25,50 +26,79 @@ def evaluate_tagger(
     name: str,
     dataset: str,
     thresholds: Mapping[ErrorKind, float] | None = None,
+    probes: Sequence[MisspellingProbe] = (),
 ) -> EvalResult:
-    """Tag every record's noisy words and score the spans against its labels."""
-    probabilities = predict_paragraphs(
-        [record.words for record in records],
-        tagger=tagger,
-        tokenizer=tokenizer,
-        window=window,
-        stride=stride,
-        batch_size=batch_size,
-    )
-    paragraphs = (
-        ParagraphSpans(
-            words=len(record.words),
-            gold=tuple(labels_to_spans(record.labels)),
-            predicted=tuple(
-                WordSpan(e.start, e.end, e.kind) for e in decode(probs, thresholds=thresholds)
-            ),
+    """Tag every record's noisy words and score the spans against its labels.
+
+    With ``probes``, also run the real-misspelling check on them.
+    """
+
+    def spans(paragraphs: Sequence[Sequence[str]]) -> list[tuple[WordSpan, ...]]:
+        probabilities = predict_paragraphs(
+            paragraphs,
+            tagger=tagger,
+            tokenizer=tokenizer,
+            window=window,
+            stride=stride,
+            batch_size=batch_size,
         )
-        for record, probs in zip(records, probabilities, strict=True)
+        return [
+            tuple(WordSpan(e.start, e.end, e.kind) for e in decode(p, thresholds=thresholds))
+            for p in probabilities
+        ]
+
+    predicted = spans([record.words for record in records])
+    paragraphs = (
+        ParagraphSpans(len(record.words), tuple(labels_to_spans(record.labels)), found)
+        for record, found in zip(records, predicted, strict=True)
     )
-    return score(paragraphs, name=name, dataset=dataset)
+    result = score(paragraphs, name=name, dataset=dataset)
+    return _with_probes(result, probes, spans([probe.words for probe in probes]))
 
 
 def symspell_baseline(
-    records: Sequence[Record], *, dictionary: Dictionary, dataset: str
+    records: Sequence[Record],
+    *,
+    dictionary: Dictionary,
+    dataset: str,
+    probes: Sequence[MisspellingProbe] = (),
 ) -> EvalResult:
     """Flag every alphabetic, lowercase-initial word the dictionary does not know as Spelling.
 
     This is what a dictionary-only checker does; capitalized words are skipped as likely
     names. Only its Spelling scores are comparable with the tagger's.
     """
+
+    def spans(words: Sequence[str]) -> tuple[WordSpan, ...]:
+        return tuple(
+            WordSpan(i, i + 1, ErrorKind.SPELLING)
+            for i, word in enumerate(words)
+            if word.isalpha() and word[0].islower() and not dictionary.contains(word)
+        )
+
     paragraphs = (
         ParagraphSpans(
-            words=len(record.words),
-            gold=tuple(labels_to_spans(record.labels)),
-            predicted=tuple(
-                WordSpan(i, i + 1, ErrorKind.SPELLING)
-                for i, word in enumerate(record.words)
-                if word.isalpha() and word[0].islower() and not dictionary.contains(word)
-            ),
+            len(record.words), tuple(labels_to_spans(record.labels)), spans(record.words)
         )
         for record in records
     )
-    return score(paragraphs, name="symspell-baseline", dataset=dataset)
+    result = score(paragraphs, name="symspell-baseline", dataset=dataset)
+    return _with_probes(result, probes, [spans(probe.words) for probe in probes])
+
+
+def _with_probes(
+    result: EvalResult,
+    probes: Sequence[MisspellingProbe],
+    predicted: Sequence[Sequence[WordSpan]],
+) -> EvalResult:
+    if not probes:
+        return result
+    return result.model_copy(
+        update={
+            "natural_misspellings": len(probes),
+            "natural_misspelling_recall": probe_recall(probes, predicted),
+        }
+    )
 
 
 def append_result(path: Path, result: EvalResult) -> None:
@@ -98,4 +128,9 @@ def format_result(result: EvalResult) -> str:
         f"false alarms per 1,000 clean words: {result.false_alarms_per_1000:.2f} "
         f"({result.clean_words} words)",
     ]
+    if result.natural_misspellings:
+        lines.append(
+            f"real misspellings flagged: {result.natural_misspelling_recall:.3f} "
+            f"({result.natural_misspellings} probes)"
+        )
     return "\n".join(lines)
