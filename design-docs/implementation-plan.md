@@ -110,7 +110,7 @@ Train on synthetic errors from two generators, and keep real human errors for ev
 
 One function per kind, each returning `(new_words, edit)` so labels are exact by construction.
 
-- **Spelling:** keyboard-adjacent substitution, transposition, deletion, doubling, phonetic swaps (ph↔f, ie↔ei).
+- **Spelling:** keyboard-adjacent substitution, transposition, deletion, doubling, phonetic swaps (ph↔f, ie↔ei). Non-word misspellings are caught by the SymSpell pre-pass, not the tagger: the PoC showed a dictionary-less model cannot tell a plausible misspelling (occured, seperate) from a rare correct word. Spelling corruption stays in the data so the tagger is robust to typos, with a low weight; the tagger's effort goes to errors made of real words.
 - **RealWord:** confusion sets (their/there/they're, then/than, form/from, affect/effect, …).
 - **VerbTense / VerbForm / SubjectVerbAgreement:** spaCy POS + `lemminflect` to re-inflect one verb (VBD→VBZ, VBZ→VBP, VBN→VBD). For tense, pick verbs in documents whose tense histogram is >80% one tense, so the error is detectable.
 - **Determiner / Preposition:** delete, insert, or swap from a closed set.
@@ -184,7 +184,7 @@ def verb_tense(ctx, rng):
 **Applier rules (`src/contcheck/corrupt/apply.py`):**
 
 - Sample 0–3 kinds per paragraph from the config weights; retry another kind when a corruptor returns `None`.
-- Reject edits that overlap or touch adjacent words, so each label span is unambiguous.
+- Reject edits that overlap. Keep the rest apart by an untouched word, except in a small share of paragraphs (`adjacent_share` in the config) whose errors sit on neighbouring words: real writers make those, and a model that never sees them learns that an error's neighbours are correct. Each edit still gets its own label span, and a Missing edit always keeps untouched neighbours, since its label goes on one of them.
 - Apply edits right to left so earlier indices stay valid, then compute labels on the noisy word list.
 - **Missing** edits (a deleted word) put `B-<kind>` on the word that now follows the gap.
 - Match casing of the original word, and re-attach punctuation tokens unchanged.
