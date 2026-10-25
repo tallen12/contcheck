@@ -27,6 +27,7 @@ contcheck/
   src/contcheck/
     taxonomy/         # ErrorKind, Operation, label map (single source of truth)
     analysis/         # spaCy adapter: POS, lemmas, tense histogram, doc stats
+    lm/               # MaskedScorer: masked-LM predictions and scores in context
     spelling/         # SymSpell adapter: dictionary lookup and suggestions
     annotation/       # ERRANT adapter mapping edits through taxonomy
     corrupt/          # rule-based corruptors, one module per error kind, plus the applier
@@ -112,6 +113,7 @@ One function per kind, each returning `(new_words, edit)` so labels are exact by
 
 - **Spelling:** keyboard-adjacent substitution, transposition, deletion, doubling, phonetic swaps (ph↔f, ie↔ei). Non-word misspellings are caught by the SymSpell pre-pass, not the tagger: the PoC showed a dictionary-less model cannot tell a plausible misspelling (occured, seperate) from a rare correct word. Spelling corruption stays in the data so the tagger is robust to typos, with a low weight; the tagger's effort goes to errors made of real words.
 - **RealWord:** confusion sets (their/there/they're, then/than, form/from, affect/effect, …).
+- **RealWord (word choice):** confusion sets alone teach a fixed list of pairs, so a share of RealWord edits (`word_choice_share` in `configs/gen.yaml`) comes from a masked LM instead (`corrupt/word_choice.py`, mixed with the confusion sets by `corrupt/composite.py`). It masks a noun, verb, adjective or adverb, takes the model's top 100 words, and keeps those with the original's Penn tag that are `lemminflect` dictionary words, not a form of the original's lemma, not a stop word, not a neighbour's repeat, and that do not break a preceding *a*/*an*. The point is a contrastive filter: the model must expect the original (P ≥ 0.2), prefer it at least 100× over the candidate, and give the candidate itself at most 0.001, because many proposals are acceptable alternatives (*docks* for *harbour*) and would be false labels. On a manual review of 50 edits from `roberta-large` (the configured model; `distilroberta-base` is the cheaper default), 25 were clear errors, 14 borderline and 11 acceptable alternatives, mostly meaning changes the context allows (*wife* → *cousin*); `distilroberta-base` gave fewer clear errors. Embedding similarity and a neighbour-likelihood check did not separate the two groups. The scorer runs batched on the GPU in half precision behind the `MaskedScorer` protocol (`lm/`) with a per-run cache; roberta-large adds about 9 ms per paragraph (about 9 minutes on 60k paragraphs × 2 variants), so no precompute step is needed. GPU float differences can flip borderline candidates between machines, so byte-identical output holds per machine and model, not across them.
 - **VerbTense / VerbForm / SubjectVerbAgreement:** spaCy POS + `lemminflect` to re-inflect one verb (VBD→VBZ, VBZ→VBP, VBN→VBD). For tense, pick verbs in documents whose tense histogram is >80% one tense, so the error is detectable.
 - **Determiner / Preposition:** delete, insert, or swap from a closed set.
 - **NounNumber, Capitalization, Apostrophe, WordBoundary, Punctuation, ExtraWord, MissingWord, WordOrder:** simple token operations.
@@ -428,7 +430,7 @@ Route each detected error to a corrector by kind: rules and candidate scoring fo
 | Capitalization, Apostrophe, WordBoundary, Punctuation, ExtraWord | Rules | deterministic fix | — |
 | WordOrder, MissingWord, SentenceBoundary | Local LLM (constrained) | LLM rewrite of the sentence | ERRANT check that only the flagged span changed |
 
-**Masked-LM scoring:** mask the flagged word, score each candidate with a small masked LM (e.g. DistilRoBERTa) in the full sentence. ELECTRA's generator half also works and is tiny.
+**Masked-LM scoring:** mask the flagged word, score each candidate with a small masked LM (e.g. DistilRoBERTa) in the full sentence. ELECTRA's generator half also works and is tiny. The `MaskedScorer` protocol in `lm/` already does this for the word-choice corruptor (`MaskedSlot.candidates` with `top_k=0` scores only the candidates); correctors reuse it, adding an ONNX adapter so `infer` stays free of `torch`. It scores only words that are one model token, so multi-token candidates need an extension (for example pseudo-log-likelihood over their pieces).
 
 **Optional reranker:** once enough candidates are logged, train LightGBM on features per candidate (edit distance, frequency, LM score, tagger confidence, same-lemma flag). This is where tree models fit well.
 
