@@ -1,13 +1,15 @@
 """The word-level BIO label set derived from :class:`ErrorKind`.
 
 There are ``1 + 2 * len(ErrorKind)`` labels: ``O`` plus ``B-<kind>`` and ``I-<kind>`` for
-every kind. Label ids follow the order of :data:`LABELS` and are what the model predicts.
+every kind. Label ids follow the order of :data:`LABELS` and are what the model predicts;
+``LABELS[i]`` is the label with id ``i``.
 """
 
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from types import MappingProxyType
+from typing import assert_never
 
 from contcheck.taxonomy.kinds import ErrorKind
 
@@ -44,6 +46,8 @@ def format_label(label: Label) -> str:
             return OUTSIDE
         case Tagged(prefix=prefix, kind=kind):
             return f"{prefix.value}-{kind.value}"
+        case unreachable:
+            assert_never(unreachable)
 
 
 def parse_label(text: str) -> Label:
@@ -64,4 +68,3 @@ LABELS: tuple[str, ...] = (
     *(format_label(Tagged(prefix, kind)) for kind in ErrorKind for prefix in Prefix),
 )
 LABEL2ID: Mapping[str, int] = MappingProxyType({label: i for i, label in enumerate(LABELS)})
-ID2LABEL: Mapping[int, str] = MappingProxyType(dict(enumerate(LABELS)))

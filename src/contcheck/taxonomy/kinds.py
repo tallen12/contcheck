@@ -35,7 +35,11 @@ class ErrorKind(StrEnum):
 class Operation(StrEnum):
     """How the noisy text differs from the clean text, as in ERRANT's M/U/R prefixes.
 
-    Kept as metadata next to the kind rather than baked into the label.
+    Kept as metadata next to the kind rather than baked into the label. A missing or
+    unnecessary closed-class word keeps the kind named after its class: a dropped *the*
+    is ``Determiner`` with ``MISSING``, as are prepositions, conjunctions and punctuation.
+    Open-class words and pronouns, whose kinds name a change of form rather than a class,
+    are ``MissingWord`` or ``ExtraWord``.
     """
 
     MISSING = "M"

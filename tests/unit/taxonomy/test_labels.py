@@ -2,7 +2,6 @@ import pytest
 
 from contcheck.taxonomy.kinds import ErrorKind
 from contcheck.taxonomy.labels import (
-    ID2LABEL,
     LABEL2ID,
     LABELS,
     OUTSIDE,
@@ -21,7 +20,7 @@ def test_label_set_is_outside_plus_begin_and_inside_per_kind() -> None:
 
 
 def test_label_ids_round_trip() -> None:
-    assert all(ID2LABEL[LABEL2ID[label]] == label for label in LABELS)
+    assert all(LABELS[LABEL2ID[label]] == label for label in LABELS)
     assert sorted(LABEL2ID.values()) == list(range(len(LABELS)))
 
 

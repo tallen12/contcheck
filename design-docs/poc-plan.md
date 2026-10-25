@@ -78,10 +78,11 @@ data features. The model features (F13, F14, F15) then build alongside the data 
 
 ## Running it
 
-- **Branches:** one branch per milestone slice, stacked with `gh stack` so each can be
-  reviewed on its own: `feat/poc-m1-taxonomy` (F1) on `main`, `feat/poc-m2-rule-data` (C2,
-  F3, F4, F6–F11) on it, and `feat/poc-m3-baseline` (C3, F13–F17, `tag`) on top. Each
-  feature lands as one commit on its milestone branch. Every branch is one pull request in
+- **Branches:** one branch per milestone slice, stacked so each can be reviewed on its
+  own: `feat/poc-m1-taxonomy` (F1) on `main`, `feat/poc-m2-rule-data` (C2, F3, F4,
+  F6–F11) on it, and `feat/poc-m3-baseline` (C3, F13–F17, `tag`) on top. Each feature
+  lands as one commit on its milestone branch; a change to a lower branch reaches the
+  ones above it by merging it up, not by rebasing. Every branch is one pull request in
   the stack, merged bottom up after review. (This replaces the single `feat/poc-tagger`
   branch first planned, so review comes in milestone-sized pieces.)
 - **Afterwards:** M1 to M3 continue from `main` with the remaining scope in the right-hand

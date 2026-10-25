@@ -71,3 +71,12 @@ def test_missing_at_the_end_tags_the_word_before() -> None:
 def test_missing_anchor_rejects_bad_gaps(gap: int, count: int) -> None:
     with pytest.raises(ValueError):
         missing_anchor(gap, word_count=count)
+
+
+def test_spans_to_labels_rejects_negative_word_count() -> None:
+    with pytest.raises(ValueError, match="negative word count"):
+        spans_to_labels([], word_count=-1)
+
+
+def test_the_last_two_gaps_share_an_anchor() -> None:
+    assert missing_anchor(2, word_count=3) == missing_anchor(3, word_count=3)
