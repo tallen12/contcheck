@@ -15,5 +15,7 @@ kind_weights:
   SubjectVerbAgreement: 2
   Determiner: 2
   Preposition: 1.5
+  Conjunction: 1
+  PronounForm: 1
   Punctuation: 1.5
   default: 1
