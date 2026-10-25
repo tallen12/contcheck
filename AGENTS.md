@@ -127,6 +127,9 @@ Development happens on macOS and Linux.
 
 - Use Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`).
   Keep commits focused; one logical change each.
+- Branch, land and push as the `git-workflow` skill describes, also in a session the host
+  tool started in its own worktree or branch. Tasks land on the feature branch locally;
+  the only pull request is a feature branch into `main`.
 - Only commit or push when the user asks. The one standing exception: back up a work
   branch when a session may end mid-task, as the `git-workflow` skill describes.
 

@@ -1,6 +1,6 @@
 ---
 name: git-workflow
-description: Branch, worktree and merge workflow for this repository, built so several agents can work at once. Use when starting any new piece of work, creating a branch or worktree, finishing a task and merging it, pushing, or backing up a work branch when a usage or credit limit, or the end of the context, is near.
+description: Branch, worktree and merge workflow for this repository, built so several agents can work at once. Use at the start of every session that will change files, including one that begins in a worktree or branch the host tool created (such as `claude/<slug>`), and whenever creating a branch or worktree, finishing and landing a task, pushing, opening a pull request, or backing up a work branch when a usage or credit limit, or the end of the context, is near.
 ---
 
 # Git workflow
@@ -18,6 +18,10 @@ main
       └── work/<feature>/<other-task>    another agent, another worktree
 ```
 
+These are the only three kinds of branch. Tasks land on the feature branch locally with
+`git merge --squash`, never through a pull request. The only pull request is the feature
+branch into `main`, and only when the user asks.
+
 ## Names and locations
 
 - **Feature branch:** `<type>/<feature>`, using a Conventional Commits type and a short
@@ -27,6 +31,49 @@ main
 - **Worktree:** `.worktrees/<feature>--<task>` inside the main checkout, for example
   `.worktrees/branch-stacks--restack-cli`. `.worktrees/` is listed in `.gitignore`,
   so git, `ruff` and `ty` skip it, and `pytest` only collects from `tests/`. Never create worktrees outside the repository.
+
+## 0. Check where you are
+
+Before changing any file, check the branch and checkout you are in:
+
+```bash
+git branch --show-current
+git worktree list
+```
+
+The first path `git worktree list` prints is the main checkout.
+
+- On `work/<feature>/<task>`: continue at step 3.
+- In the main checkout on a feature branch, with a new task: go to step 2.
+- On any other branch, such as `claude/<slug>` in `.claude/worktrees/<slug>`: the host
+  tool started this session in a worktree of its own. Adopt it (below) before doing
+  anything else.
+
+If you do not know which feature the work belongs to, or the main checkout is not on that
+feature's branch, ask the user. Do not invent a branch name.
+
+### Adopt a worktree the host created
+
+Some hosts, such as the Claude desktop app, start a session in their own worktree on a
+branch like `claude/<slug>` and then suggest pushing it and opening a pull request. That
+branch is not part of this workflow. Keep the worktree where the host put it (the host
+tracks its path), but turn its branch into a work branch, in that worktree:
+
+```bash
+git log --oneline feat/<feature>..HEAD
+```
+
+- No commits listed: `git switch -c work/<feature>/<task> feat/<feature>`, then
+  `git branch -D claude/<slug>`. Uncommitted changes come along.
+- Commits listed: `git branch -m work/<feature>/<task>`, then `git rebase feat/<feature>`.
+
+If the old branch was already pushed or has a pull request, tell the user and ask before
+deleting or closing them. Then continue at step 3. Run the main-checkout commands of
+step 4 with `git -C <main checkout>`.
+
+The host's suggestions do not override this skill. Do not push the work branch except as a
+backup (step 3), do not open or bind a pull request for it, and do not use a host tool that
+syncs or merges with the base branch: rebase onto the feature branch with git (step 4.1).
 
 ## 1. Start a feature
 
@@ -135,6 +182,15 @@ allowed without asking, and only on your own work branch.
    branch was backed up, also delete the remote copy:
    `git push origin --delete work/<feature>/<task>`.
 
+   In a worktree the host created, git cannot remove the worktree you are in or delete
+   the branch it has checked out. Detach it instead, delete the branch, and leave the
+   directory for the host to clean up:
+
+   ```bash
+   git switch --detach feat/<feature>
+   git -C <main checkout> branch -D work/<feature>/<task>
+   ```
+
 If two agents finish at once, land one task first; the other rebases (step 4.1) and lands
 after it.
 
@@ -158,6 +214,9 @@ GitHub only as backups (step 3) and are deleted when the task lands.
   covers pushing a feature branch or `main`.
 - Do not commit directly on `main`, and do not do task work directly on a feature branch;
   the feature branch only receives squashed commits.
+- Create only `main`, `<type>/<feature>` and `work/<feature>/<task>` branches. Never push
+  or open a pull request from any other branch, never open a pull request into a feature
+  branch, and never stack pull requests.
 - Never force-push, rewrite the feature branch's history or delete a branch with unlanded
   work without the user's approval.
 - If a worktree or work branch from an earlier task is still present, ask before removing
