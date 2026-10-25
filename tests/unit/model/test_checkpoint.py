@@ -62,3 +62,19 @@ def test_checkpoint_with_other_labels_is_rejected(saved: tuple[Path, ContextTagg
 
     with pytest.raises(ValueError, match="label set"):
         load_checkpoint(directory)
+
+
+@pytest.mark.parametrize(
+    "changes", [{"window": 16, "stride": 15}, {"window": 4, "stride": 1}, {"stride": 0}]
+)
+def test_info_rejects_windows_that_leave_gaps(changes: dict[str, object]) -> None:
+    with pytest.raises(ValueError):
+        info(**changes)
+
+
+def test_checkpoint_with_document_vectors_is_rejected(saved: tuple[Path, ContextTagger]) -> None:
+    directory, _ = saved
+    (directory / INFO).write_text(info(use_doc=True).model_dump_json(), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="document vectors"):
+        load_checkpoint(directory)

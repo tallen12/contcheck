@@ -46,3 +46,22 @@ def test_corrupt_writes_valid_round_tripping_records(raw: Path, tmp_path: Path) 
     assert report.round_trip_failures == 0
     assert sum(report.kinds.values()) > 0
     assert first.read_bytes() == second.read_bytes()
+
+
+@pytest.mark.models
+def test_corrupt_with_word_choice_round_trips(raw: Path, tmp_path: Path) -> None:
+    config = tmp_path / "gen.yaml"
+    config.write_text(
+        CONFIG.replace("kind_weights: {default: 1}", "kind_weights: {RealWord: 1}")
+        + "word_choice_share: 1\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "records.jsonl"
+
+    corrupt(config=config, in_=raw, out=out)
+
+    records = list(read_jsonl(out, Record))
+    report = build_report(records)
+    assert report.round_trip_failures == 0
+    assert set(report.kinds) <= {"RealWord"}
+    assert sum(report.kinds.values()) > 0

@@ -57,6 +57,7 @@ protocols and implementations in separate modules.
 | `taxonomy` | `ErrorKind`, `Operation`, label map, BIO helpers, ERRANT code map | F1 |
 | `corpus` | JSONL record schema, ingestion, document-level splits, merge, report | C2 |
 | `analysis` | `TextAnalyzer` protocol (POS, lemmas, finite verbs), spaCy adapter, tense histogram, doc stats | C2 |
+| `lm` | `MaskedScorer` protocol, Hugging Face masked-LM adapter, prediction cache | F9b |
 | `spelling` | `Dictionary` protocol, SymSpell adapter (lookup and suggestions) | C2 |
 | `annotation` | `Annotator` protocol, ERRANT adapter mapping edits through `taxonomy` | C2 |
 | `corrupt` | `Edit`, corruptor registry, one module per kind, applier, generation config | C2 |
@@ -99,8 +100,14 @@ IDs are stable; use them in branch names and session titles.
 | F6 | Clean corpus ingestion | `corpus` | C2 | Read raw paragraph files, group 2–5 paragraphs into documents with `doc_id`, filter out paragraphs SymSpell flags heavily (`Dictionary` protocol), deterministic document-level train/val/test split by hashed `doc_id`. Sources are pluggable readers; the first reads plain text and JSONL |
 | F7 | Corruption applier | `corrupt` | C2 | Sample 0–3 kinds per paragraph from `GenConfig` weights, retry another kind when a corruptor returns `None`, reject overlapping edits and keep the rest apart except in a configurable share of paragraphs (`adjacent_share`) whose errors sit on neighbouring words, apply right to left, compute BIO labels on noisy words, tag Missing edits on the following word, match casing, re-attach punctuation, N variants per paragraph with derived seeds. Tested with fake corruptors |
 | F8 | Orthographic corruptors | `corrupt` | C2 | Spelling (keyboard-adjacent, transposition, deletion, doubling, phonetic swaps; result must not be a dictionary word; non-word misspellings are owned by the SymSpell pre-pass, so these typos mainly keep the tagger robust to them), Capitalization, Apostrophe, WordBoundary, Punctuation |
-| F9 | Lexical corruptors | `corrupt` | C2 | RealWord (confusion sets as a data file), Determiner, Preposition, Conjunction (closed sets), ExtraWord, MissingWord, WordOrder |
-| F10 | Morphological corruptors | `corrupt` | C2 | VerbTense (only in documents whose tense histogram is >80% one tense; keeps agreement), VerbForm, SubjectVerbAgreement, NounNumber, AdjectiveAdverb, PronounForm, plus the `Inflector` adapter over `lemminflect` |
+| F9 | Lexical corruptors | `corrupt` | C2 | RealWord (generated weighted confusions in `corrupt/confusables.py`: the hand-written sets in a data file, CMUdict homophones as a bundled data file, and frequent SymSpell words one edit apart, or two for long words, minus forms of one lemma, shared stems, British spellings and names; weighted by source and rarer-word frequency with a per-word cap; exposed as a filterable `ConfusionMap` for held-out pairs), Determiner, Preposition (closed confusion map; mostly swaps, plus drops only between a verb and a non-pronoun object and insertions only after listed transitive verbs), Conjunction (closed sets of meaning- or grammar-breaking swaps; than/then stays RealWord, that and whether are left alone), ExtraWord, MissingWord, WordOrder |
+| F10 | Morphological corruptors | `corrupt` | C2 | VerbTense (only in documents whose tense histogram is >80% one tense; keeps agreement), VerbForm, SubjectVerbAgreement, NounNumber, AdjectiveAdverb, PronounForm (single-word case and form swaps, first-person and plural reflexives, who to whom only as a relative subject; skips pronouns after than/as and a mid-sentence I, whose capital the applier would copy), plus the `Inflector` adapter over `lemminflect` and a `WordClassLexicon` over its lemma tables, so AdjectiveAdverb only derives listed words |
+
+F9b, masked-LM word choice (`corrupt`, `lm`; after F9): RealWord edits whose
+replacement a masked LM proposes and a contrastive filter keeps only when the context
+clearly rejects it (implementation plan, Phase 1b). `CompositeCorruptor` mixes it with
+the confusion sets under the one RealWord registry slot, by `word_choice_share`. Its
+`MaskedScorer` (`lm/`) is the protocol F26 builds on.
 
 The implementation plan puts Spelling, RealWord, VerbTense, SubjectVerbAgreement and
 Determiner first. Each corruptor feature builds its first-priority kind first, so a
@@ -169,7 +176,7 @@ protocols, routing by kind, and the corrector registry. Then, in parallel:
 
 | ID | Feature | Domain | Hard deps | Scope |
 | --- | --- | --- | --- | --- |
-| F26 | Masked-LM scorer | `correct` | C7 | `CandidateScorer` scoring candidates in context with a small masked LM (DistilRoBERTa), exported to ONNX like F23 so corrections also run without `torch` |
+| F26 | Masked-LM scorer | `correct` | C7, F9b | `CandidateScorer` scoring candidates in context with a small masked LM (DistilRoBERTa) through F9b's `MaskedScorer`, with an ONNX adapter like F23 so corrections also run without `torch` |
 | F27 | Rule correctors | `correct` | C7 | Deterministic fixes for Capitalization, Apostrophe, WordBoundary, Punctuation, ExtraWord |
 | F28 | Candidate correctors | `correct` | C7, F4, F10 | Spelling (SymSpell distance ≤ 2, ranked by scorer and frequency), confusion-set kinds, inflection kinds (preferring the document's dominant tense), form tables for NounNumber, AdjectiveAdverb, PronounForm |
 | F29 | Correction evaluation | `training` | F26, F27, F28, F12 | Top-1 suggestion accuracy per kind on real eval data. **Ends M7** |
@@ -193,6 +200,7 @@ flowchart LR
   F2 --> C2
   C2 --> F3 & F4 & F6 & F7 & F8 & F9 & F10
   F2 --> F5
+  F9 --> F9b
   F3 & F4 & F6 & F7 --> F11
   C2 --> C3
   F5 --> F12
@@ -206,6 +214,7 @@ flowchart LR
   F14 --> F23
   F15 --> F24
   F23 & F24 --> F25
+  F9b --> F26
   F4 & F10 --> F28
   F26 & F27 & F28 & F12 --> F29
   F20 & F5 --> F30
