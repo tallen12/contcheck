@@ -10,16 +10,13 @@ import torch
 from torch.optim.lr_scheduler import LambdaLR
 
 from contcheck.corpus.record import Record
-from contcheck.infer.decode import decode
-from contcheck.infer.predict import predict_paragraphs
 from contcheck.model.align import record_windows
 from contcheck.model.collate import Batch, collate
 from contcheck.model.models import Window
 from contcheck.model.protocols import Tokenizer
 from contcheck.model.tagger import ContextTagger, TorchTagger
-from contcheck.taxonomy.bio import WordSpan, labels_to_spans
 from contcheck.training.config import TrainConfig
-from contcheck.training.metrics import ParagraphSpans, score
+from contcheck.training.evaluate import evaluate_tagger
 from contcheck.training.models import EvalResult
 
 type Log = Callable[[str], None]
@@ -71,24 +68,16 @@ def validate(
     name: str,
 ) -> EvalResult:
     """Score ``model`` on ``records`` with span-level metrics."""
-    tagger = TorchTagger(model, device)
-    probabilities = predict_paragraphs(
-        [record.words for record in records],
-        tagger=tagger,
+    return evaluate_tagger(
+        records,
+        tagger=TorchTagger(model, device),
         tokenizer=tokenizer,
         window=config.window,
         stride=config.stride,
         batch_size=config.batch_size * 2,
+        name=name,
+        dataset="val",
     )
-    paragraphs = (
-        ParagraphSpans(
-            words=len(record.words),
-            gold=tuple(labels_to_spans(record.labels)),
-            predicted=tuple(WordSpan(e.start, e.end, e.kind) for e in decode(probs)),
-        )
-        for record, probs in zip(records, probabilities, strict=True)
-    )
-    return score(paragraphs, name=name, dataset="val")
 
 
 def shuffled_batches(

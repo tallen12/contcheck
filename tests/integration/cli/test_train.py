@@ -5,7 +5,7 @@ import pytest
 from contcheck.cli.train import train
 from contcheck.corpus.jsonl import write_jsonl
 from contcheck.model.checkpoint import load_checkpoint
-from tests.unit.training.conftest import make_record
+from tests.conftest import make_record
 
 
 @pytest.mark.models
