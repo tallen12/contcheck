@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from contcheck.cli.corpus import CorpusSource, build_corpus_app, merge, report
+from contcheck.cli.corpus import CorpusSource, article_source, build_corpus_app, merge, report
 from contcheck.corpus.jsonl import read_jsonl, write_jsonl
 from contcheck.corpus.record import Record, RecordSource, Split
 
@@ -11,7 +11,23 @@ def test_corpus_app_has_fetch() -> None:
     app = build_corpus_app()
 
     assert "fetch" in app
-    assert [s.value for s in CorpusSource] == ["wikipedia"]
+    assert [s.value for s in CorpusSource] == [
+        "wikipedia",
+        "simple-wikipedia",
+        "gutenberg",
+        "fineweb-edu",
+        "wikinews",
+        "wikibooks",
+        "wikivoyage",
+        "stackexchange",
+    ]
+
+
+@pytest.mark.parametrize("source", list(CorpusSource))
+def test_every_source_builds_without_network_access(source: CorpusSource) -> None:
+    articles = article_source(source, seed=1)
+
+    assert callable(articles.articles)
 
 
 def test_merge_writes_one_file_per_split(

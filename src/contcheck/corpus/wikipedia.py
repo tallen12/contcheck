@@ -6,6 +6,8 @@ from contcheck.corpus.models import Article
 
 DATASET = "wikimedia/wikipedia"
 SNAPSHOT = "20231101.en"
+SIMPLE_SNAPSHOT = "20231101.simple"
+"""Simple English Wikipedia, same dump date and license."""
 SHUFFLE_BUFFER = 10_000
 
 type StreamLoader = Callable[[str, str, int], Iterable[object]]

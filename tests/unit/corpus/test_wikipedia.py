@@ -3,7 +3,7 @@ from collections.abc import Iterable
 import pytest
 from pydantic import ValidationError
 
-from contcheck.corpus.wikipedia import DATASET, SNAPSHOT, WikipediaArticles
+from contcheck.corpus.wikipedia import DATASET, SIMPLE_SNAPSHOT, SNAPSHOT, WikipediaArticles
 
 
 def test_rows_become_articles_from_the_configured_snapshot() -> None:
@@ -25,3 +25,15 @@ def test_malformed_rows_are_rejected() -> None:
 
     with pytest.raises(ValidationError):
         list(WikipediaArticles(load, seed=0).articles())
+
+
+def test_simple_english_snapshot_is_a_configuration() -> None:
+    calls: list[str] = []
+
+    def load(dataset: str, snapshot: str, seed: int) -> Iterable[object]:
+        calls.append(snapshot)
+        return []
+
+    list(WikipediaArticles(load, seed=0, snapshot=SIMPLE_SNAPSHOT).articles())
+
+    assert calls == ["20231101.simple"]

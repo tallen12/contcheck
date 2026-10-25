@@ -33,7 +33,7 @@ stays as a debugging command after M6's ONNX `check()` exists.
 | C2 | `Edit`, `Record`, `CorruptionContext`, `GenConfig`; `Corruptor`, `TextAnalyzer`, `Inflector`, `Dictionary` protocols; corruptor registry; shared fakes; CLI split. Dependencies: `pydantic`, `pyyaml`, `cyclopts`, `spacy`, `en-core-web-sm`, `lemminflect`, `symspellpy`, `datasets` | `Annotator` protocol and `errant` (with F5) |
 | F3 | All of F3: spaCy analyzer, tense histogram, doc stats | — |
 | F4 | Dictionary membership and suggestions | User words, token skipping rules |
-| F6 | Plain-text and JSONL readers, `corpus fetch` streaming an English Wikipedia subset through `datasets`, document grouping, document-level split | SymSpell-based filtering, more sources |
+| F6 | Plain-text and JSONL readers, `corpus fetch` streaming English Wikipedia and the sources in [Corpus sources](#corpus-sources-2026-10-24) through `datasets`, the cleanliness filter, document grouping, document-level split | Tuning the mix on real eval data |
 | F7 | All of F7: the applier | — |
 | F8 | Spelling | Capitalization, Apostrophe, WordBoundary, Punctuation |
 | F9 | RealWord, Determiner | Preposition, Conjunction, ExtraWord, MissingWord, WordOrder |
@@ -193,9 +193,98 @@ baseline the broader real-word generators (generated confusables, masked-LM
 substitutions, closed-class and inflection kinds) have to move. The held-out number,
 not synthetic val, is the one to watch.
 
+## Corpus sources (2026-10-24)
+
+The tagger's job is now errors made of real words, which depend on register, and
+Wikipedia has almost no first person, dialogue, narration, instructions or informal text.
+`corpus fetch --source <name>` streams each source below; `corrupt --in data/raw` reads
+every JSONL file in the directory, so each source's `--limit` sets the mix.
+
+| Source (`--source`) | Hugging Face dataset | License | Streams | Notes |
+| --- | --- | --- | --- | --- |
+| `wikipedia` | [`wikimedia/wikipedia`](https://huggingface.co/datasets/wikimedia/wikipedia) `20231101.en` | CC BY-SA 3.0 / GFDL | yes | Unchanged |
+| `simple-wikipedia` (optional) | [`wikimedia/wikipedia`](https://huggingface.co/datasets/wikimedia/wikipedia) `20231101.simple` | CC BY-SA 3.0 / GFDL | yes | Short plain sentences; not in the mix by default |
+| `gutenberg` | [`sedthh/gutenberg_english`](https://huggingface.co/datasets/sedthh/gutenberg_english) | Books public domain in the US; dataset card MIT | yes (37 parquet shards, 10.7 GB) | 48,284 books with catalogue metadata (author birth/death years, subjects, bookshelves) and the license header already removed. No publication date: kept books have every main author born 1870 or later and a fiction subject or bookshelf, not drama or poetry (about 1 in 8 books) |
+| `fineweb-edu` | [`HuggingFaceFW/fineweb-edu`](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) `sample-10BT` | ODC-By 1.0 (plus Common Crawl terms) | yes | One paragraph per line; already filtered to educational score ≥ 3 |
+| `wikinews` | [`Fumika/Wikinews-multilingual`](https://huggingface.co/datasets/Fumika/Wikinews-multilingual) | CC BY 2.5 | yes (one 45 MB JSONL) | 5,240 English articles with paragraphs as clean lists; only `lang == "en"` rows are used |
+| `wikibooks`, `wikivoyage` | [`common-pile/wikimedia`](https://huggingface.co/datasets/common-pile/wikimedia) (`*_wikibooks.com.jsonl.gz`, `*_wikivoyage.com.jsonl.gz`) | CC BY-SA 4.0 per row | yes | Main namespace only. The wikitext conversion drops links and templates and leaves gaps (`the  of Brazil,,`); lines with such gaps are dropped |
+| `stackexchange` | [`HuggingFaceH4/stack-exchange-preferences`](https://huggingface.co/datasets/HuggingFaceH4/stack-exchange-preferences), one `data/<site>.stackexchange.com` directory per site | CC BY-SA 4.0 | yes | Answers as HTML with `pm_score = round(log2(1 + upvotes))`, +1 if accepted. Answers with `pm_score ≥ 4` (about 10 upvotes) from 25 prose-heavy sites, taken site by site; `english` and `ell` are left out because they quote wrong sentences on purpose |
+
+Skipped: the Common Pile Wikinews files (the same lossy conversion drops most link text
+in news, for example "the of the People's Republic of China had lunch today with the of
+Brazil,,"), [`manu/project_gutenberg`](https://huggingface.co/datasets/manu/project_gutenberg)
+(raw text with license headers but no catalogue metadata, so no date or genre filter
+without a separate catalogue download), [`deepmind/pg19`](https://huggingface.co/datasets/deepmind/pg19)
+(pre-1919 books only, and a loading script the viewer cannot run),
+[`common-pile/stackexchange`](https://huggingface.co/datasets/common-pile/stackexchange)
+(no vote scores, and questions, answers and comments are joined into one text) and
+[`flax-sentence-embeddings/stackexchange_titlebody_best_voted_answer_jsonl`](https://huggingface.co/datasets/flax-sentence-embeddings/stackexchange_titlebody_best_voted_answer_jsonl)
+(CC BY-NC-SA).
+
+**Cleanup per source.** Gutenberg: in this dataset a single line break ends a paragraph and
+a doubled one is a hard wrap, so wraps are joined; Gutenberg start/end markers, chapter and
+part headings, page and footnote markers (`[159]`, `[Illustration: ...]`) and `_emphasis_`
+underscores are removed, and the first 10% of each book (contents, preface) is skipped.
+Stack Exchange: only top-level `<p>` text is kept; code, quotes, lists, headings and tables
+are dropped, and so is any paragraph with inline code, an image or a line break.
+FineWeb-Edu, Wikinews, Wikibooks and Wikivoyage keep their paragraph structure, one line
+per paragraph, so a heading such as "Understand" never sticks to the paragraph below it.
+
+**Cleanliness filter (F6).** After the existing shape filter (20–200 words, ends like a
+sentence), every source passes `CleanlinessFilter` on the injected `Dictionary`: it drops
+paragraphs with list syntax, markup (HTML tags, wiki braces, URLs, entities, `|`, `\`,
+`*`, underscores), more than 25% words in capitals, a sentence over 70 words, or more than
+3% unknown words among lowercase alphabetic words of three or more letters. The bundled
+SymSpell list is British-leaning, so an American spelling counts as known when its British
+form is (neighborhood, theater, traveled, aluminum). `--max-non-word-share` and
+`--max-sentence-words` change the thresholds, and `fetch` prints how many paragraphs each
+check dropped. Share of shape-filtered paragraphs each source loses, on a sample of about
+600 paragraphs per source (seed 13):
+
+| Source | Screened | Rejected | Non-words | List | Markup | Other |
+| --- | --- | --- | --- | --- | --- | --- |
+| wikipedia | 645 | 15.8% | 91 | 0 | 3 | 8 |
+| simple-wikipedia | 591 | 9.3% | 52 | 1 | 1 | 1 |
+| gutenberg | 658 | 19.9% | 123 | 0 | 1 | 7 |
+| fineweb-edu | 644 | 15.8% | 65 | 26 | 9 | 2 |
+| wikinews | 553 | 4.3% | 21 | 0 | 1 | 2 |
+| wikivoyage | 862 | 34.9% | 45 | 254 | 0 | 2 |
+| wikibooks | 1,183 | 49.5% | 151 | 359 | 70 | 5 |
+| stackexchange | 585 | 9.2% | 35 | 5 | 9 | 5 |
+
+The non-word check removes what it should: eye dialect in Gutenberg ("knowd", "nawthin",
+"gittin"), non-English passages in Wikibooks and Wikivoyage, and real typos ("tryed",
+"sucide", "wierd"). It also drops some correct technical prose with rare words
+("phenethylamine", "coagulopathy"). Wikivoyage and Wikibooks lose most to list items
+(`* ...` listings).
+
+**Spot check** (20 kept paragraphs per source). Wikinews, Gutenberg and Wikipedia read
+clean. Real-word errors already in the source get through, as expected, most often in
+Stack Exchange ("before resulting to", "pursue you Ph.D."), Wikibooks ("Larger organisms
+has more cells compare to", "postion") and Wikivoyage ("Kingston is also to the longest").
+Wikibooks still has a few dropped-link gaps the gap check cannot see ("It also has a, the
+viceroy"). FineWeb-Edu has occasional lost dashes ("fresh air-and"). Hence the smaller
+share for Wikibooks below.
+
+**Fetch commands for the agreed mix** (100,000 paragraphs; scale the limits together):
+
+```bash
+just cli corpus fetch --source wikipedia --limit 35000 --out data/raw/wikipedia.jsonl
+just cli corpus fetch --source gutenberg --limit 25000 --per-article 25 --out data/raw/gutenberg.jsonl
+just cli corpus fetch --source fineweb-edu --limit 20000 --out data/raw/fineweb-edu.jsonl
+just cli corpus fetch --source wikinews --limit 4000 --out data/raw/wikinews.jsonl
+just cli corpus fetch --source wikivoyage --limit 4000 --out data/raw/wikivoyage.jsonl
+just cli corpus fetch --source wikibooks --limit 2000 --out data/raw/wikibooks.jsonl
+just cli corpus fetch --source stackexchange --limit 10000 --out data/raw/stackexchange.jsonl
+```
+
+`--per-article 25` takes 1,000 books instead of 2,500 for Gutenberg, which streams about
+8,000 books (around 2 GB) instead of 20,000. The PoC's `data/raw/wiki.jsonl` predates the
+filter; remove it before `corrupt --in data/raw`, or it is read as well.
+
 ## Decisions
 
 | Decision | Assumption |
 | --- | --- |
-| Clean corpus for the PoC | English Wikipedia (`wikimedia/wikipedia`, CC BY-SA 4.0) through `datasets`; public-domain fiction can be added later for past-tense narration |
+| Clean corpus for the PoC | First run: English Wikipedia (`wikimedia/wikipedia`, CC BY-SA 4.0) through `datasets`. From the real-word runs on: Wikipedia 35%, Gutenberg fiction 25%, FineWeb-Edu 20%, Wikinews/Wikivoyage/Wikibooks 10%, Stack Exchange 10% (see [Corpus sources](#corpus-sources-2026-10-24)); BookCorpus, CC-News, OpenSubtitles and raw Reddit, email or forum text are avoided as clean text |
 | Hardware | Training on the RX 7900 XT with the `rocm` build; everything else on CPU |
