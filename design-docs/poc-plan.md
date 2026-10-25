@@ -193,6 +193,53 @@ baseline the broader real-word generators (generated confusables, masked-LM
 substitutions, closed-class and inflection kinds) have to move. The held-out number,
 not synthetic val, is the one to watch.
 
+## Real-word error run (2026-10-24)
+
+All six real-word PRs merged (#8–#13): eleven error kinds, generated confusions plus
+roberta-large word-choice errors for RealWord, Spelling down-weighted, and the seven-source
+corpus (100,000 paragraphs). `corrupt` wrote 200,000 records in 13 minutes (177,327
+train, 9,348 val, 10,353 test after merge; no round-trip failures). Training took 11.7
+minutes: val F0.5 0.700, 0.713, 0.713, keeping epoch 2. Below, "old" is the held-out
+baseline model (five kinds, Wikipedia, hand-written pairs) and "new" is this one. The
+held-out split is a seeded hash per pair, so the hand-written pairs withheld from the old
+model are withheld from the new one too.
+
+| Held-out check (pairs neither model trained on) | Old | New |
+| --- | --- | --- |
+| Hand-written pairs, old val text (the 0.245 baseline) | 0.245 | 0.455 |
+| Hand-written pairs, new val text | 0.299 | 0.493 |
+| All generated pairs, new val text (33,419 probes) | 0.221 | 0.543 |
+| Same, flagged as RealWord | 0.169 | 0.507 |
+
+| Measure | Old | New |
+| --- | --- | --- |
+| Seen pairs vs held-out pairs, new model, new val | — | 0.528 vs 0.543 |
+| Seen hand-written pairs, old val text | 0.930 | 0.727 |
+| Overall F0.5, old val (old model's own test) | 0.807 | 0.737 |
+| Overall F0.5, new val (11 kinds) | 0.448 | 0.713 |
+| False alarms per 1,000 clean words, new val | 6.71 | 8.02 |
+| Real misspellings flagged (SymSpell owns these now) | 0.484 | 0.407 |
+
+New model per kind on new val (F0.5): VerbForm 0.953, AdjectiveAdverb 0.925, PronounForm
+0.921, NounNumber 0.856, SubjectVerbAgreement 0.839, Spelling 0.757, VerbTense 0.678,
+Conjunction 0.671, Preposition 0.618, RealWord 0.553, Determiner 0.529.
+
+**Reading:** the memorization gap is gone. The new model flags seen and held-out pairs
+equally often (0.528 against 0.543), and held-out recall more than doubled. It now judges
+fit rather than recalling a list, but only about half the time. The cost is precision:
+false alarms rose about 20% on the same text, and the weakest kinds are the ones with the
+noisiest labels. RealWord precision is 0.58: about a quarter of the masked-LM edits were
+acceptable alternatives on review, and some look-alikes fit both ways. Determiner
+precision is 0.49 and Preposition 0.59, since inserted articles and swapped prepositions
+are often still correct. Seen hand-written pairs drop from 0.930 to 0.727 because they
+are now a small share of RealWord training. The old model's 0.807 on its own val was
+mostly that memorization (RealWord 0.974 there).
+
+**Next:** cut label noise before adding volume. Raise the word-choice filter's ratio and
+lower its share, drop look-alike pairs where both words are common in the same contexts,
+and tighten Determiner insertions and Preposition swaps. Track the held-out check and the
+false-alarm rate together. Real human-error evaluation (F12) remains the decisive test.
+
 ## Corpus sources (2026-10-24)
 
 The tagger's job is now errors made of real words, which depend on register, and
