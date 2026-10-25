@@ -145,11 +145,3 @@ def corrupt_paragraph(
 ) -> Corrupted:
     """Corrupt one clean paragraph with 0 or more errors drawn from ``config``."""
     return apply_edits(context, choose_edits(context, registry, config, rng))
-
-
-def revert_edits(words: Sequence[str], edits: Sequence[EditRecord]) -> tuple[str, ...]:
-    """Undo ``edits`` on noisy ``words``, giving back the clean words."""
-    restored = list(words)
-    for edit in sorted(edits, key=lambda e: e.start, reverse=True):
-        restored[edit.start : edit.end] = edit.orig
-    return tuple(restored)

@@ -9,7 +9,8 @@ from importlib.metadata import version
 
 from cyclopts import App
 
-from contcheck.cli.corpus import build_corpus_app
+from contcheck.cli.corpus import build_corpus_app, merge, report
+from contcheck.cli.corrupt import corrupt
 
 
 def build_app() -> App:
@@ -20,6 +21,9 @@ def build_app() -> App:
         version=version("contcheck"),
     )
     app.command(build_corpus_app())
+    app.command(corrupt)
+    app.command(merge)
+    app.command(report)
     return app
 
 

@@ -7,7 +7,8 @@ from the command line:
 just setup rocm
 just cli corpus fetch --source wikipedia --limit 60000 --out data/raw/wiki.jsonl
 just cli corrupt --config configs/gen.yaml --in data/raw --out data/synthetic/rule.jsonl
-just cli merge --out data/synthetic/train.jsonl
+just cli merge data/synthetic/rule.jsonl --out-dir data/synthetic
+just cli report data/synthetic/train.jsonl --config configs/gen.yaml
 just cli train --config configs/train.yaml --device cuda:0
 just cli tag "Yesterday I go to the store and buyed there apples."
 ```

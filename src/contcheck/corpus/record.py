@@ -1,5 +1,6 @@
 """The JSONL record format shared by every data source and the trainer."""
 
+from collections.abc import Sequence
 from enum import StrEnum
 from typing import Self
 
@@ -76,3 +77,11 @@ class Record(BaseModel):
         if any(edit.end > len(self.words) for edit in self.edits):
             raise ValueError("an edit runs past the last word")
         return self
+
+
+def revert_edits(words: Sequence[str], edits: Sequence[EditRecord]) -> tuple[str, ...]:
+    """Undo ``edits`` on noisy ``words``, giving back the clean words."""
+    restored = list(words)
+    for edit in sorted(edits, key=lambda e: e.start, reverse=True):
+        restored[edit.start : edit.end] = edit.orig
+    return tuple(restored)

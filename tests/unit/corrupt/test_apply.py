@@ -4,13 +4,13 @@ from dataclasses import dataclass
 import pytest
 
 from contcheck.analysis.models import TenseHistogram, join_words
+from contcheck.corpus.record import revert_edits
 from contcheck.corrupt.apply import (
     apply_edits,
     choose_edits,
     clashes,
     corrupt_paragraph,
     match_case,
-    revert_edits,
     weighted_choice,
 )
 from contcheck.corrupt.config import GenConfig
