@@ -15,7 +15,14 @@ dependencies = [
     "pyyaml>=6.0.3",
     "spacy>=3.8.16",
     "symspellpy>=6.10.0",
+    "transformers>=5.20.2",
 ]
+
+[project.optional-dependencies]
+# PyTorch builds; install exactly one with `just setup <build>` (see the feature plan).
+cpu = ["torch==2.14.1"]
+cuda = ["torch==2.14.1"]
+rocm = ["torch==2.14.1", "triton-rocm==3.8.0"]
 
 [project.scripts]
 contcheck = "contcheck:main"
@@ -48,6 +55,12 @@ all = "error"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = ["-m", "not models and not llm and not datasets"]
+markers = [
+    "models: downloads a pretrained Hugging Face model",
+    "llm: needs a running local LLM",
+    "datasets: downloads a dataset",
+]
 
 [tool.coverage.run]
 source = ["contcheck"]
@@ -57,10 +70,34 @@ branch = true
 show_missing = true
 skip_covered = false
 
-[tool.uv.sources]
-en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
-
 [tool.uv]
 # preshed 3.0.14 (2026-10-24) breaks spaCy model loading on Python 3.14 with an
 # OverflowError in Tokenizer._flush_specials; 3.0.13 works.
 constraint-dependencies = ["preshed!=3.0.14"]
+conflicts = [[{ extra = "cpu" }, { extra = "cuda" }, { extra = "rocm" }]]
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
+torch = [
+    # macOS takes PyPI's build, which is the CPU (and MPS) build there.
+    { index = "pytorch-cpu", extra = "cpu", marker = "sys_platform == 'linux'" },
+    { index = "pytorch-cu130", extra = "cuda" },
+    { index = "pytorch-rocm", extra = "rocm" },
+]
+# The ROCm torch needs triton-rocm, which exists only on the ROCm index.
+triton-rocm = [{ index = "pytorch-rocm", extra = "rocm" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-rocm"
+url = "https://download.pytorch.org/whl/rocm7.2"
+explicit = true

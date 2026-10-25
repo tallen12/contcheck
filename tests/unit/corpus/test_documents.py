@@ -51,3 +51,10 @@ def test_split_is_stable_and_roughly_follows_shares() -> None:
 def test_invalid_shares(val: float, test: float) -> None:
     with pytest.raises(ValueError, match="shares"):
         SplitShares(val=val, test=test)
+
+
+def test_a_source_split_across_the_stream_is_rejected() -> None:
+    raw = paragraphs("a", 2) + paragraphs("b", 2) + paragraphs("a", 2)
+
+    with pytest.raises(ValueError, match="not consecutive"):
+        list(group_documents(raw, seed=1, shares=SplitShares()))

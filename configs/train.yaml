@@ -1,0 +1,19 @@
+# Baseline tagger training for `contcheck train` (see training/config.py).
+encoder: google/electra-small-discriminator
+seed: 13
+window: 256
+stride: 128
+batch_size: 32
+epochs: 3
+patience: 1
+encoder_lr: 3.0e-5
+head_lr: 1.0e-3
+warmup_ratio: 0.06
+max_grad_norm: 1.0
+outside_weight: 0.2
+fuse_dim: 128
+use_doc: false
+train: data/synthetic/train.jsonl
+val: data/synthetic/val.jsonl
+out: runs/baseline
+log_every: 200

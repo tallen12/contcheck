@@ -245,9 +245,10 @@ declared as conflicting so only one can be installed. One `uv.lock` covers all t
   PyTorch, else `cpu`) happens once at the CLI composition root and is passed in.
 - **Pick the device explicitly.** ROCm also lists AMD integrated GPUs (on the dev machine,
   the Ryzen's `gfx1036` as `cuda:1`), which ROCm builds do not support. Device selection
-  takes a `--device` option (default: the visible GPU with the most memory, else `cpu`)
-  and logs the chosen device's name and architecture; `HIP_VISIBLE_DEVICES=0` also hides
-  the integrated GPU.
+  takes a `--device` option (default: the discrete GPU with the most memory, else `cpu`;
+  the integrated GPU reports shared system memory, 30 GiB on the dev machine, so it must
+  be skipped rather than outranked) and logs the chosen device's name and architecture;
+  `HIP_VISIBLE_DEVICES=0` also hides the integrated GPU.
 
 ## Running the plan
 

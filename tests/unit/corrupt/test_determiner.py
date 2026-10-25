@@ -1,5 +1,7 @@
 import random
 
+import pytest
+
 from contcheck.analysis.models import TenseHistogram
 from contcheck.corrupt.context import CorruptionContext
 from contcheck.corrupt.determiner import (
@@ -20,9 +22,29 @@ def context(analyzer: FakeAnalyzer, text: str) -> CorruptionContext:
 
 
 def test_drop_skips_sentence_initial_articles(analyzer: FakeAnalyzer, rng: random.Random) -> None:
-    edit = drop_article(context(analyzer, "The dog is in the park."), rng)
+    edit = drop_article(context(analyzer, "A dog is in a park."), rng)
 
-    assert edit == Edit(4, 5, ErrorKind.DETERMINER, Operation.MISSING, ("the",), ())
+    assert edit == Edit(4, 5, ErrorKind.DETERMINER, Operation.MISSING, ("a",), ())
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I saw the dog.",  # dropping "the" often leaves correct English
+        "I saw a dogs.",  # not a singular noun
+        "I have a few.",  # "few" alone is correct with another meaning
+    ],
+)
+def test_drop_only_removes_indefinites_before_singular_nouns(
+    analyzer: FakeAnalyzer, rng: random.Random, text: str
+) -> None:
+    assert drop_article(context(analyzer, text), rng) is None
+
+
+def test_drop_looks_past_an_adjective(analyzer: FakeAnalyzer, rng: random.Random) -> None:
+    edit = drop_article(context(analyzer, "I saw a big dog."), rng)
+
+    assert edit == Edit(2, 3, ErrorKind.DETERMINER, Operation.MISSING, ("a",), ())
 
 
 def test_drop_needs_an_article(analyzer: FakeAnalyzer, rng: random.Random) -> None:
@@ -35,32 +57,39 @@ def test_add_puts_an_indefinite_before_plurals(analyzer: FakeAnalyzer, rng: rand
     assert edit == Edit(2, 2, ErrorKind.DETERMINER, Operation.UNNECESSARY, (), ("an",))
 
 
-def test_add_puts_the_before_singular_phrases(analyzer: FakeAnalyzer, rng: random.Random) -> None:
-    edit = add_article(context(analyzer, "I walk to big house."), rng)
+def test_add_looks_past_an_adjective(analyzer: FakeAnalyzer, rng: random.Random) -> None:
+    edit = add_article(context(analyzer, "I walk to big dogs."), rng)
 
-    assert edit is not None
-    assert edit.new == ("the",)
-    assert edit.start == 3
+    assert edit == Edit(3, 3, ErrorKind.DETERMINER, Operation.UNNECESSARY, (), ("a",))
+
+
+def test_add_leaves_singular_phrases_alone(analyzer: FakeAnalyzer, rng: random.Random) -> None:
+    # "the" before a singular phrase ("walk to the big house") is usually correct.
+    assert add_article(context(analyzer, "I walk to big house."), rng) is None
 
 
 def test_add_needs_a_bare_phrase_after_a_verb(analyzer: FakeAnalyzer, rng: random.Random) -> None:
     assert add_article(context(analyzer, "The dog."), rng) is None
 
 
-def test_swap_turns_the_into_the_right_indefinite(
+def test_swap_turns_the_into_an_indefinite_before_plurals(
     analyzer: FakeAnalyzer, rng: random.Random
 ) -> None:
-    assert swap_article(context(analyzer, "I saw the apple."), rng) == Edit(
+    assert swap_article(context(analyzer, "I saw the apples."), rng) == Edit(
         2, 3, ErrorKind.DETERMINER, Operation.REPLACEMENT, ("the",), ("an",)
     )
 
 
-def test_swap_of_an_indefinite_gives_the_or_the_other_form(analyzer: FakeAnalyzer) -> None:
+def test_swap_keeps_the_before_singular_nouns(analyzer: FakeAnalyzer, rng: random.Random) -> None:
+    assert swap_article(context(analyzer, "I saw the apple."), rng) is None
+
+
+def test_swap_of_an_indefinite_only_gives_the_other_form(analyzer: FakeAnalyzer) -> None:
     ctx = context(analyzer, "I saw a dog.")
 
     news = {e.new for seed in range(20) if (e := swap_article(ctx, random.Random(seed)))}
 
-    assert news == {("the",), ("an",)}
+    assert news == {("an",)}
 
 
 def test_corruptor_falls_back_to_an_operation_with_a_site(analyzer: FakeAnalyzer) -> None:

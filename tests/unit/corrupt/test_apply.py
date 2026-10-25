@@ -1,4 +1,5 @@
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import pytest
@@ -202,6 +203,23 @@ def test_weighted_choice_follows_weights(rng: random.Random) -> None:
     assert picks.count("b") / len(picks) == pytest.approx(0.75, abs=0.03)
     with pytest.raises(ValueError):
         weighted_choice({"a": 0.0}, rng)
+
+
+class AlmostOne:
+    """An ``Rng`` whose ``random`` is as close to 1 as floats allow."""
+
+    def random(self) -> float:
+        return 1.0 - 2**-53
+
+    def randrange(self, stop: int, /) -> int:
+        return stop - 1
+
+    def choice[T](self, seq: Sequence[T], /) -> T:
+        return seq[-1]
+
+
+def test_weighted_choice_never_returns_a_zero_weight_key() -> None:
+    assert weighted_choice({"a": 0.1, "b": 0.2, "c": 0.0}, AlmostOne()) == "b"
 
 
 @dataclass

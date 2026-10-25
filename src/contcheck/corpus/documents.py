@@ -66,8 +66,15 @@ def group_documents(
     Group sizes come from a generator seeded by ``seed`` and the source id, so the result
     does not depend on which other sources are read. A source's last document may hold a
     single paragraph.
+
+    Raises ``ValueError`` if a source's paragraphs are not consecutive: grouping it again
+    would reuse its document ids and seeds for different text.
     """
+    seen: set[str] = set()
     for source_id, group in groupby(paragraphs, key=lambda paragraph: paragraph.source_id):
+        if source_id in seen:
+            raise ValueError(f"paragraphs of source {source_id!r} are not consecutive")
+        seen.add(source_id)
         texts = [paragraph.text for paragraph in group]
         rng = random.Random(f"{seed}:{source_id}")
         start = 0

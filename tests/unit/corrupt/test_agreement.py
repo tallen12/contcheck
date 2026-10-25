@@ -30,10 +30,19 @@ def test_present_verbs_swap_person(analyzer: FakeAnalyzer, inflector: FakeInflec
 
 
 def test_be_swaps_in_present_and_past(analyzer: FakeAnalyzer, inflector: FakeInflector) -> None:
-    assert swaps(analyzer, inflector, "It is here. They was there.") == {
+    assert swaps(analyzer, inflector, "It is here. It was there.") == {
         ("is", "are"),
         ("was", "were"),
     }
+
+
+def test_past_be_swap_needs_a_subject_it_breaks(
+    analyzer: FakeAnalyzer, inflector: FakeInflector
+) -> None:
+    # "they was" has no swap: "were" would be correct. "If it was" becomes the correct
+    # subjunctive "if it were", so it is left alone too.
+    assert swaps(analyzer, inflector, "They was there.") == set()
+    assert swaps(analyzer, inflector, "If it was there.") == set()
 
 
 def test_past_and_modal_verbs_have_no_agreement(

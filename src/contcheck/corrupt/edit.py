@@ -1,6 +1,7 @@
 """The edit a corruptor proposes on clean text."""
 
 from dataclasses import dataclass
+from typing import assert_never
 
 from contcheck.taxonomy.kinds import ErrorKind, Operation
 
@@ -32,5 +33,7 @@ class Edit:
                 valid = not self.orig and bool(self.new)
             case Operation.REPLACEMENT:
                 valid = bool(self.orig) and bool(self.new) and self.orig != self.new
+            case unreachable:
+                assert_never(unreachable)
         if not valid:
             raise ValueError(f"orig {self.orig} and new {self.new} do not fit op {self.op}")

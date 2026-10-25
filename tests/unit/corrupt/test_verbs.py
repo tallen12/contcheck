@@ -2,7 +2,13 @@ import pytest
 
 from contcheck.analysis.models import TenseHistogram
 from contcheck.corrupt.context import CorruptionContext
-from contcheck.corrupt.verbs import Subject, be_past_to_present, present_tag_for, subject_of
+from contcheck.corrupt.verbs import (
+    Subject,
+    be_past_to_present,
+    follows_subjunctive_trigger,
+    present_tag_for,
+    subject_of,
+)
 from tests.conftest import FakeAnalyzer
 
 
@@ -15,7 +21,9 @@ from tests.conftest import FakeAnalyzer
         ("The dog walked", Subject.THIRD_SINGULAR),
         ("The dogs walked", Subject.OTHER),
         ("She then walked", Subject.THIRD_SINGULAR),
-        ("The dogs in London walked", Subject.THIRD_SINGULAR),
+        ("The dogs in London walked", Subject.UNKNOWN),
+        ("The dogs in big London walked", Subject.UNKNOWN),
+        ("In London she walked", Subject.THIRD_SINGULAR),
         ("The big walked", Subject.UNKNOWN),
         ("walked", Subject.UNKNOWN),
     ],
@@ -42,7 +50,20 @@ def test_present_tag_for() -> None:
 
 
 def test_be_past_to_present() -> None:
-    assert be_past_to_present("were", Subject.UNKNOWN) == "are"
+    assert be_past_to_present("were", Subject.OTHER) == "are"
+    assert be_past_to_present("were", Subject.FIRST_SINGULAR) is None
+    assert be_past_to_present("were", Subject.UNKNOWN) is None
     assert be_past_to_present("Was", Subject.FIRST_SINGULAR) == "am"
     assert be_past_to_present("was", Subject.THIRD_SINGULAR) == "is"
     assert be_past_to_present("was", Subject.UNKNOWN) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [("If I was", True), ("I wish she was", True), ("I was", False), ("If so. I was", False)],
+)
+def test_follows_subjunctive_trigger(analyzer: FakeAnalyzer, text: str, expected: bool) -> None:
+    tokens = analyzer.analyze(text).tokens
+    context = CorruptionContext(tokens, TenseHistogram(1.0, 0.0, 0.0, 0.0))
+
+    assert follows_subjunctive_trigger(context, len(tokens) - 1) is expected
