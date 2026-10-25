@@ -137,7 +137,7 @@ For naturalistic, multi-word errors the rules can't produce.
 3. **Ignore the LLM's own description of its changes.** Run ERRANT on `(noisy, clean)` to extract and classify edits, then map through `errant_map.py`.
 4. Reject outputs with too many edits, low word overlap with the source, or any unmapped edit type.
 
-Target mix to start: \~70% rule-based, \~30% LLM.
+LLM data is not mixed into the rule-based set. It is a small verified fine-tuning set for a second training stage; see [training-stages.md](training-stages.md).
 
 ### 1d. Real evaluation data
 
@@ -362,8 +362,8 @@ Use Hugging Face `Trainer` with a custom collator, or a plain PyTorch loop; both
 
 ### 3d. Order of experiments
 
-1. `use_doc=False` baseline on rule-based data only.
-2. Add LLM data.
+1. `use_doc=False` baseline on rule-based data only (stage 1, [training-stages.md](training-stages.md)).
+2. Fine-tune on the verified LLM-error set (stage 2), then add judge-checked hard examples.
 3. `use_doc=True`.
 4. Try DeBERTa-v3-small as the encoder if accuracy is short and the latency budget allows.
 
@@ -385,7 +385,7 @@ Judge the model on real human errors with span-level F0.5, broken down by kind. 
 
 1. With vs without the document vector, overall and on VerbTense alone. If they match, drop the vector.
 2. Embedding only vs tense histogram only vs both.
-3. Rule-only vs rule + LLM training data, scored on real errors.
+3. Stage 1 alone vs stage 1 plus LLM-error fine-tuning, scored on real errors.
 
 **Targeted tense test set:** build \~300 documents by hand or from fiction where exactly one verb breaks a consistent tense, plus \~300 that legitimately mix tenses (dialogue, flashbacks). The model should flag the first set and stay quiet on the second.
 
@@ -456,7 +456,7 @@ The first useful milestone is M3: a no-context tagger on rule-based data, scored
 - [ ] **M2 — Rule-based data:** clean corpus, document-level split, corruptors for Spelling, RealWord, VerbTense, SubjectVerbAgreement, Determiner first; the rest after.
 - [ ] **M3 — Baseline tagger:** ELECTRA-small, `use_doc=False`, evaluated on BEA-2019 dev and the false-alarm set.
 - [ ] **M4 — Document context:** doc vectors, `use_doc=True`, tense ablation on the targeted tense set.
-- [ ] **M5 — LLM data:** Ollama generation, ERRANT relabeling, filters; retrain and compare.
+- [ ] **M5 — LLM data:** Ollama generation, ERRANT relabeling, filters and verification; fine-tune the stage-1 tagger on it and compare.
 - [ ] **M6 — CPU inference:** ONNX export, int8, windowing and merge, SymSpell pre-pass, latency report.
 - [ ] **M7 — Corrections:** SymSpell + confusion sets + inflection with masked-LM ranking.
 - [ ] **M8 — Structural fixes:** constrained local-LLM corrector for WordOrder, MissingWord, SentenceBoundary.
