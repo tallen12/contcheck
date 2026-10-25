@@ -1,5 +1,6 @@
 """``Dictionary`` over ``symspellpy`` and its bundled English frequency list."""
 
+from collections.abc import Mapping
 from importlib.resources import as_file, files
 
 from symspellpy import SymSpell, Verbosity
@@ -22,6 +23,10 @@ class SymSpellDictionary:
     def suggestions(self, word: str, *, max_distance: int = MAX_DISTANCE) -> list[Suggestion]:
         items = self._symspell.lookup(word.lower(), Verbosity.ALL, max_edit_distance=max_distance)
         return [Suggestion(item.term, item.distance, item.count) for item in items]
+
+    def frequencies(self) -> Mapping[str, int]:
+        """Every word in the index with its corpus count."""
+        return self._symspell.words
 
 
 def load_symspell_dictionary() -> SymSpellDictionary:

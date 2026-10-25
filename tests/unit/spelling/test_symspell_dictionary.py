@@ -26,3 +26,7 @@ def test_suggestions_are_closest_then_most_frequent(dictionary: SymSpellDictiona
 
 def test_no_suggestions_beyond_distance(dictionary: SymSpellDictionary) -> None:
     assert dictionary.suggestions("zzzzz", max_distance=2) == []
+
+
+def test_frequencies_list_every_word(dictionary: SymSpellDictionary) -> None:
+    assert dictionary.frequencies() == {"the": 100, "they": 50, "then": 40, "house": 10}

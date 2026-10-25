@@ -4,6 +4,9 @@ import pytest
 
 from contcheck.cli.evaluate import build_checks, evaluate
 from contcheck.corpus.jsonl import read_jsonl, write_jsonl
+from contcheck.corrupt.config import GenConfig
+from contcheck.corrupt.confusables import hand_written_map
+from contcheck.corrupt.real_word import load_confusion_sets
 from contcheck.training.models import EvalResult
 from contcheck.training.probes import CheckName
 from tests.conftest import make_record
@@ -35,20 +38,23 @@ def test_evaluate_without_baseline(checkpoint: Path, tmp_path: Path) -> None:
     assert len(results.read_text(encoding="utf-8").splitlines()) == 1
 
 
-def test_build_checks_adds_held_out_pairs_only_when_some_are_withheld(tmp_path: Path) -> None:
+def test_build_checks_adds_held_out_pairs_only_when_some_are_withheld() -> None:
     records = [make_record(i, noisy=i % 2 == 0) for i in range(4)]
-    base = "seed: 13\nvariants_per_paragraph: 1\nerrors_per_paragraph: {1: 1}\n"
-    base += "kind_weights: {default: 1}\n"
-    none_held = tmp_path / "none.yaml"
-    none_held.write_text(base, encoding="utf-8")
-    some_held = tmp_path / "some.yaml"
-    some_held.write_text(base + "held_out_confusion_share: 0.5\n", encoding="utf-8")
+    confusions = hand_written_map(load_confusion_sets())
 
-    assert set(build_checks(records, gen_config=none_held)) == {
-        CheckName.REAL_MISSPELLINGS,
-        CheckName.SEEN_CONFUSIONS,
-    }
-    checks = build_checks(records, gen_config=some_held)
-    assert CheckName.HELD_OUT_CONFUSIONS in checks
+    def gen_config(share: float) -> GenConfig:
+        return GenConfig(
+            seed=13,
+            variants_per_paragraph=1,
+            errors_per_paragraph={1: 1.0},
+            kind_weights={"default": 1},
+            held_out_confusion_share=share,
+        )
+
+    none_held = build_checks(records, gen_config=gen_config(0.0), confusions=confusions)
+    some_held = build_checks(records, gen_config=gen_config(0.5), confusions=confusions)
+
+    assert set(none_held) == {CheckName.REAL_MISSPELLINGS, CheckName.SEEN_CONFUSIONS}
+    assert CheckName.HELD_OUT_CONFUSIONS in some_held
     # "to" is in the to/too confusion set and occurs in the clean fixture records.
-    assert sum(len(c.probes) for c in checks.values()) > 0
+    assert sum(len(c.probes) for c in some_held.values()) > 0

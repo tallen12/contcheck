@@ -1,0 +1,1816 @@
+# Homophone groups, one per line, from the CMU Pronouncing Dictionary
+# (https://github.com/cmusphinx/cmudict), limited to words in symspellpy's English
+# frequency list. Regenerate with scripts/build_homophones.py; do not edit by hand.
+#
+# Copyright (C) 1993-2015 Carnegie Mellon University. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#    The contents of this file are deemed to be source code.
+#
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in
+#    the documentation and/or other materials provided with the
+#    distribution.
+#
+# This work was supported in part by funding from the Defense Advanced
+# Research Projects Agency, the Office of Naval Research and the National
+# Science Foundation of the United States of America, and by member
+# companies of the Carnegie Mellon Sphinx Speech Consortium. We acknowledge
+# the contributions of many volunteers to the expansion and improvement of
+# this dictionary.
+#
+# THIS SOFTWARE IS PROVIDED BY CARNEGIE MELLON UNIVERSITY ``AS IS'' AND
+# ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+# THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY
+# NOR ITS EMPLOYEES BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+aaron aron
+abbe abbey abby
+abbot abbott
+abel able
+acclamation acclimation
+acetic ascetic
+acknowledgement acknowledgment
+actin acton
+adams addams
+adan aden
+adapter adaptor
+adapters adaptors
+addition edition
+adds ads
+adieu ado
+adviser advisor
+advisers advisors
+aerial ariel
+aerie airy
+aetna etna
+aid aide
+aides aids
+ail ale
+aileen eileen
+ails ales
+air ere err eyre heir
+aired erred
+aires aries
+airing erring
+airs errs heirs
+ais ayes eyes
+aisle isle
+aisles isles
+alan allan allen
+ali ollie
+align aline
+alisa elisa
+alison allyson
+alissa alyssa
+alley allie
+allowed aloud
+altar alter
+altars alters
+ambiance ambience
+amman ammon
+amok amuck
+an ann anne
+analog analogue
+anas anise
+andersen anderson
+angel angell
+annal annul
+ant aunt
+ante auntie
+ants aunts
+apatite appetite
+apologise apologize
+apologised apologized
+apologises apologizes
+apologising apologizing
+appel apple
+arc ark
+argon argonne
+artie arty
+asa ossa
+ascent assent
+asch ash ashe
+asher ashur
+aster astor
+ate eight
+aud awed
+auer hour our
+auger augur
+augers augurs
+aught ought
+aura ora
+aural oral orel
+aux eau owe
+ava eva
+aye eye i
+ayer eyer
+baba bubba
+babble babel
+bach bock
+backs bax
+bade bayed
+baggie baggy
+baht bott bought
+bail bale bayle
+bailer bailor baler baylor
+bailey bailie bailly
+bailing baling
+bails bales
+baird bared
+bait bate
+baited bated
+baits bates
+baize bayes bays
+bald balled bawled
+ball bawl
+balls bawls
+balm bomb
+balms bombs
+baloney bologna
+banc bank
+band banned
+bar barr
+barbecue barbeque
+barbecued barbequed
+barbecues barbeques
+barbel barbell
+barber barbour
+bard barred
+bare bear
+bares bears
+baring bearing behring bering
+barnes barns
+baron barren barron
+barons barrens
+barre berry bury
+barres bars
+barret barrett
+barrie barry
+barros borrows
+based baste
+bask basque
+basks basques
+bat batt
+bataan baton
+bauble bobble
+baubles bobbles
+baud bawd
+bauer bower
+bay bey
+bazaar bazar bizarre
+be bee
+beach beech
+bead bede
+beat beet
+beaten beeton
+beatles beetles
+beats beets
+beau beaux
+been bin
+bees bes
+behavior behaviour
+bel bell belle
+bela bella
+belles bells
+ben benne
+benet bennett
+beni bennie benny
+bens benz
+berg burg
+berger burger burgher
+berk burke
+berle burl
+bern burn
+bernie burney
+berries buries
+bert burt
+berth birth
+berths births
+betsey betsy
+bette betti betty
+better bettor
+betters bettors
+beverage beveridge
+beverley beverly
+bib bibb
+bight bite byte
+billed build
+billie billy
+birch burch
+bird byrd
+birr bur burr
+bise buys
+bismarck bismark
+bites bytes
+blain blaine
+blair blare
+blanc blank
+blanch blanche
+blase blaze
+blew blue
+blithe blythe
+bloc bloch block blok
+blocks blocs
+blond blonde
+blondes blonds
+bloom blum
+blueish bluish
+blvd boulevard
+boar boer bohr bore
+board bored
+boarder border
+boarders borders
+boart bort
+bobbi bobbie bobby
+boche botch
+boeing bowing
+boers bores bors
+boil boyle
+bold bowled
+bolder boulder
+bole boll bowl
+boles bolls bowls
+bon bonn bonne
+bonnie bonny
+boole boule
+boon boone
+boos booze
+bootie booty
+borg bourg
+born borne bourne
+bough bow
+boughs bows
+bowman bowmen
+brae bray
+brag bragg
+brake break
+brakes breaks
+braking breaking
+branden brandon
+brandi brandy
+brandt brant
+bras brass
+braun brawn
+brayer breyer
+breach breech
+breaches breeches
+breaching breeching
+bread bred
+breast brest
+brede breed
+bree brie
+bret brett
+breuer brewer
+brewed brood
+brews bruise
+brian bryan bryon
+briana brianna
+briar brier
+brice bryce
+bridal bridle
+bridgett bridgette brigitte
+brighten brighton
+brit britt
+britain briton britten
+brook brooke
+brookes brooks
+brown browne
+brows browse
+brummel brummell
+brunet brunette
+brut brute
+buchner buckner
+bunch bunche
+burkes burks
+burley burly
+burro burrow
+burros burrows
+bus buss
+busch bush
+bused bussed bust
+busing bussing
+but butt
+bute butte
+buts butts
+buy by bye
+buyers byers
+cabbie cabby
+cache cash
+cached cashed
+caches cashes
+caching cashing
+caen can kan
+caesar cesar
+cain caine cane kain kane
+calendar calender
+cali collie colly
+callous callus
+calm com comm qom
+camomile chamomile
+cana kana
+canes keynes
+cannes cans
+cannon canon
+cannons canons
+cant kant
+canter cantor
+canvas canvass
+canvases canvasses
+car carr
+cara kara
+carat karat
+caravel caravelle
+careen corinne
+carey carrie cary kari kerri kerry
+carl karl
+carleton carlton
+carlisle carlyle
+carman carmen carmine
+carol carole carrel carroll
+cart carte
+casino cassino
+caspar casper
+cassel castle kassel
+cassie kasey
+cast caste
+caster castor
+castes casts
+cat catt kat
+cate kate
+catharine katharine kathryn
+cathie cathy kathie kathy
+catsup ketchup
+caudal coddle
+caught cot khat
+caul coll
+caulk cock
+cause coz
+cay kay kaye
+cecelia cecilia
+cedar ceder
+cede seed
+cedes seeds
+ceding seeding
+ceiling sealing
+celina salina selena
+cell sell
+cellar seller
+cellars sellers
+cells sells
+censer censor sensor
+censors sensors
+cent scent sent
+center centre
+cents scents
+cereals serials
+ceres series
+cerf serf surf
+chaise shays
+chalk chock
+chaney cheney
+chaplain chaplin
+chard charred
+charley charlie
+charon karen
+chased chaste
+check cheque czech
+checks cheques czechs
+cheetah chita
+cher share
+cheri cherie sheri sherri sherrie sherry
+cheryl sheryl
+chew chou
+chews choose
+chez shay shea
+chic sheik sheikh
+childe chilled
+chile chilly
+choral coral
+chorale corral
+chorals corals
+chord cord
+chords cords
+chow ciao
+chris kris
+christa crista krista
+christi christie kristi kristie kristy
+christina cristina kristina
+christine kristine
+christopher kristopher
+chrysler kreisler
+chrystal crystal krystal
+churchman churchmen
+chute shoot shute
+chutes shoots
+cicely sicily
+cid sid
+cinch synch
+cinque sink sync
+cipher cypher
+cist cyst
+cite sight site
+cites sights sites
+citing sighting siting
+clair claire clare
+clan klan
+clark clarke
+claud claude clawed
+claus clause claws
+cleek clique
+clemens clemons
+cleo clio
+clews clues
+clicks cliques
+climbs climes
+cline klein kline
+cluj kluge
+coal cole kohl
+coals coles kohls
+coarse corse course
+coarser courser
+coat cote
+coats cotes
+coax cokes
+cob cobb
+cobs kobs
+cocks cox
+cocky khaki
+coffee coffey
+coif quaff
+coley coli
+coliseum colosseum
+collard collared
+colombia columbia
+colonel kernel
+colonels kernels
+color colour culler
+colter coulter
+comb combe
+come cum
+coming cumming
+comings cummings
+comma kama
+complacent complaisant
+complemented complimented
+complementing complimenting
+con conn kahn khan
+concord concorde
+confectionary confectionery
+cong kong
+connection connexion
+connections connexions
+coo coup
+cook cooke
+cooley coolly coulee
+coon kuhn
+coop coupe
+cor core corps corr
+corey corrie
+corniche cornish
+cory kory
+cos coss
+council counsel
+councils counsels
+counsellor counselor
+courier currier
+crab crabbe
+craft kraft
+crappie crappy
+crays craze
+creak creek
+cream creme
+crewel cruel
+crews cruise cruse cruz
+crock kroc
+croon kroon
+cuban kuban
+cue kew que queue
+cues ques queues
+cuing queuing
+cur kerr
+curb kerb
+curbs kerbs
+curd kurd
+curt kurt
+curtiss kurtis
+cush kusch
+cymbal symbol
+cymbals symbols
+cypress cyprus
+czar tsar
+daemon demon
+dagan dagon
+dah duh
+dahl dol doll
+daily daley
+dairy derry
+dais days daze
+dali dollie dolly
+dam damn
+daman damon
+damian damien
+dammed damned
+damming damning
+damns dams
+dane deign
+danes deigns
+dannie danny
+daren darin darrin
+darrel darrell darryl daryl
+daub daube
+dawes daws
+day dey
+de dee
+dean deane
+deana deanna
+dear deer deere
+debbie debby
+debora debra
+dec deck
+decker dekker
+deem diem
+defence defense
+defused diffused
+defusing diffusing
+del dell
+delhi deli
+delmar delmer
+delores dolores
+dena dina
+denis dennis
+deon dione dionne
+dep depp
+derek derick derrick
+descendant descendent
+descent dissent
+descents dissents
+deuce duce
+dew do due
+dewey dewy
+dews dues
+dian dion
+diane dianne
+dickey dicky
+dicks dix
+dickson dixon
+die dye
+died dyed
+dies dyes
+dietician dietitian
+dike dyke
+dikes dykes
+dillon dylan
+dinars diners
+dines dynes
+diocese dioceses
+disc disk
+discreet discrete
+discs disks
+doc dock
+docks docs
+doe doh dough
+doggie doggy
+dolls dols
+domain domaine
+dominic dominick
+don donn
+donar donner
+done donne dun dunn dunne
+donnie donny
+donuts doughnuts
+dooley duly
+door dore
+dos doss
+dostoevski dostoevsky
+dottie dotty
+doug dug
+douglas douglass
+douse dowse
+dousing dowsing
+draft draught
+drafts draughts
+drier dryer
+droop drupe
+druse druze
+dual duel
+duals duels
+duane dwayne
+ducked duct
+ducks dux
+dyeing dying
+eager eger
+earl earle
+earn erne urn
+eaten eaton eton
+eave eve yves
+eaves eves
+eban eben
+echoes echos
+ecuadorean ecuadorian
+eddie eddy
+edmond edmund
+eerie erie
+eide eyed
+eleanor eleanore
+eli ely
+eliot elliot elliott
+ellice ellis
+ells els
+ellwood elwood
+emanuel emmanuel
+embed imbed
+emery emory
+emmet emmett
+encyclopaedia encyclopedia
+eric erich erick erik
+erica ericka erika
+erickson ericson ericsson
+erk irk
+erma irma
+ester esther
+ethel ethyl
+euler oiler
+ewe yew you
+fain fane feign
+faint feint
+fair fare
+fairies ferries
+fairs fares
+fairy ferry
+falkner faulkner
+fannie fanny
+faro pharaoh
+farrell ferrell
+fate fete
+fated feted
+faure for fore four
+faux fawkes
+favor favour
+fay faye fey
+faze phase
+fazed phased
+feat feet
+feb february
+fee fie
+fer fir fur
+fessed fest
+few phew
+fiber fibre
+fila phyla
+fill phil
+fillip philip
+filly philly
+filo philo
+fin finn
+find fined
+finish finnish
+finns fins
+fireman firemen
+firs furs
+fisc fisk
+fischer fisher fissure
+fish phish
+fishers fissures
+fishing phishing
+flack flak
+flair flare
+flat flatt
+flea flee
+fleas flees
+flecks flex
+flew flu flue
+flier flyer
+fliers flyers
+flo floe flow
+floc flock
+floor flor
+florey flory
+flour flower
+flours flowers
+focused focussed
+foe pho
+forego forgo
+foregoing forgoing
+foreman foremen
+forest forrest
+forth fourth
+foul fowl
+franc franck frank
+francs franks
+frankfort frankfurt
+franklin franklyn
+fraser frazer
+frater freighter
+fray frey
+fred freda
+freddie freddy
+frederic frederick fredric fredrick
+freedman friedman
+frees freeze frieze
+freezes friezes
+frei fry frye
+friar fryer
+friars fryers
+frond fronde
+fulfil fulfill
+gabby gaby
+gael gail gale galle gayle
+gaff gaffe
+gage gauge
+gaines gains
+gait gate
+gaiter gator
+gala galla
+gall gaul
+gallop gallup
+galls gauls
+gard guard
+gardiner gardner
+gaspar gasper
+gays gaze
+gean gene jean jeanne
+gear gere
+geez jeez
+gel jell
+gena jenna
+genes jeans
+genie jeanie jeannie
+geoffrey jeffrey jeffry
+gerald jerald jerrold
+germane jermaine
+gerry jere jeri jerri jerrie jerry
+gest jest
+gibe jibe
+gil gill
+gild guild
+gilder guilder
+gillian jillian
+gilt guilt
+gina jena
+glaser glazer
+glen glenn
+gnash nash
+gnat nat
+gneiss nice
+gnome nome
+gnu knew new
+go gogh
+goddam goddamn
+goodie goody
+gored gourd
+gorey gory
+gorilla guerilla guerrilla
+gorillas guerillas guerrillas
+gorki gorky
+graf graph
+grahams grams
+grandad granddad
+grate great
+grater greater
+grates greats
+gray grey
+grease greece
+greaves grieves
+green greene
+greg gregg
+grew grue
+grill grille
+grim grimm
+grisly grizzly
+gro grow
+groan grown
+groat grote
+grocer grosser
+gros gross grosz
+guadalupe guadeloupe
+guarantee guaranty
+guarantees guaranties
+guessed guest
+guise guys
+gunnar gunner
+gym jim
+habsburg hapsburg
+hague haig
+hahn han hon
+haik hake
+hail hale
+hails hales
+hair hare herr
+hairs hares
+hairy harry
+hal halle
+hall haul
+halls hauls
+halve have
+halves haves
+halving having
+ham hamm
+handel handle
+handsome hansom
+hangar hanger
+hangars hangers
+hanna hannah
+hansen hanson
+haring herring
+harold herald
+hart harte heart
+hartman hartmann
+harts hearts
+haugh haw
+hawk hawke
+hay hey
+hayes hays haze
+haywood heywood
+heal heel
+healed heeled
+healing heeling
+heals heels
+hear here
+heard herd
+hearst hurst
+height hight
+heinz hines
+helen hellen
+hell helle
+helmet helmut
+henchman henchmen
+hendricks hendrix
+henri henry
+hens henze
+hercegovina herzegovina
+herl hurl
+herman hermann hermon
+hern herne
+heroin heroine
+heron herren
+hess hesse
+hew hue hugh
+hews hues hughes
+hi high
+hiccough hiccup
+hide hyde
+higher hire
+hilary hillary
+him hymn
+hmong mong
+hoar whore
+hoard horde
+hoards hordes
+hoarse horse
+hobbes hobbies
+hobbs hobs
+hoes hose
+hog hogg
+hold holed
+hole whole
+holes wholes
+holley hollie holly
+holm home
+holmes homes
+holy wholly
+honor honour
+honorable honourable
+hoo who
+hook hooke
+horace horus
+horn horne
+horney horny
+horsed horst
+horseman horsemen
+hostel hostile
+hough huff
+hours ours
+houseman housman
+how howe
+huey hughie
+humerus humorous
+humphrey humphry
+hysterectomies hysterectomy
+icahn icon ikon
+idle idol idyll
+idles idols
+immanence imminence
+immanent imminent
+imposter impostor
+inc ink
+indie indy
+infantryman infantrymen
+innuendoes innuendos
+isabel isabelle
+ismael ismail
+izard izzard
+jackie jacky
+jacklyn jaclyn
+jacobsen jacobson
+jam jamb
+jami jamie
+jana janna
+jane jayne
+janette jeanette jeannette
+janine jeanine
+jasmine jazzmen
+jefferey jeffery
+jennie jenny
+jesse jessie
+jew jus
+jimmie jimmy
+jinks jinx
+joann joanne
+jodi jodie jody
+john jon
+johnathan johnathon jonathan jonathon
+johnie johnnie johnny
+johnson jonson
+joiner joyner
+josef joseph
+joules jules
+juan wan
+juana wanna
+judgement judgment
+judgemental judgmental
+judgements judgments
+judi judy
+julian julien
+juneau juno
+junkie junky
+kail kale
+katie katy
+kea key quai quay
+kean keen
+keef kief
+keel kiel
+kelley kelli kellie kelly
+kenyan kenyon
+keven kievan
+keys quays
+kid kidd kyd
+kimberley kimberly
+kissed kist
+klansman klansmen
+knapp nap
+knave nave
+knead kneed need
+kneading needing
+knee nee
+kneel neal neil
+knell nell
+knight night
+knightly nightly
+knights nights
+knit nit
+knock nock
+knocks knox
+knot not
+know no noe
+knows noes nose
+krona krone
+kroner kronor
+kwanza kwanzaa
+labeled labelled
+lac lack
+lacey lacy
+lacks lax
+lade laid
+lager logger
+lain lane
+lair lehr
+lam lamb
+lama llama
+lamas llamas
+lancing lansing
+lander landor
+landes lands
+lao lough
+lap lapp
+lapps laps lapse
+larsen larson
+lase lays leis leys
+laser lazar
+lassa lhasa
+lat lot lott
+latisha leticia
+lats lots
+laugher locker
+laura lora
+lauren loren
+laurence lawrence
+lauri laurie lori lorie lorrie lorry
+lawes laws
+lay lei ley
+layman laymen lehmann
+layton leighton
+lbs pounds
+lea lee leigh
+leach leech
+leaches leeches
+lead led
+leader lieder
+leads leeds
+leaf leif lief
+leak leek
+leakey leaky
+leaks leeks
+lean lien
+leans liens
+leaped leapt
+learner lerner
+leary leery
+leas lees
+leased least
+lech lek
+ledger leger
+lehman leman
+leicester lester
+leila lela lila
+lemma lemme
+lena lina
+lenard leonard
+lenin lennon
+les less
+lesa lisa
+lesley leslie
+lessen lesson
+lessens lessons
+lesser lessor
+let lett
+leu lew lieu loo lou
+levee levy
+levees levies
+levit levitt
+lewis louis
+licence license
+licences licenses
+lichen liken
+lichens likens
+licker liquor
+lie lye
+light lite
+likable likeable
+lilian lillian
+lillie lilly lily
+limb limn
+lime lyme
+lin linn lynn lynne
+linda lynda
+linden lyndon
+lindsay lindsey
+lineman linemen
+links lynx
+lion lyon
+lions lyons
+lip lippe
+lippi lippy
+lira lire
+list liszt
+literal littoral
+litton lytton
+lizzie lizzy
+lloyd loyd
+load lode
+loads lodes
+loan lone
+lobe loeb
+lock locke
+locks lox
+loess lois
+loews lows
+lonnie lonny
+loop loup loupe lupe
+loos lose
+loose luce
+loot lute
+loraine lorraine
+lords lourdes
+lottie lotty
+louisa luisa
+loves luvs
+low lowe
+lucile lucille
+lucks lux
+maas mas
+mabel mable
+mac mack
+macadam mcadam
+macao macau
+macbride mcbride
+macdonald mcdonald
+mach mock
+macintosh mcintosh
+mackenzie mckenzie
+macks macs max
+macleod mcleod
+macmillan mcmillan
+macpherson mcpherson
+madam madame
+made maid
+madge maj
+mae may
+magnate magnet
+mai my
+maia maya
+mail male
+mails males
+main maine mane
+mains mainz manes
+maize mays maze
+mali mollie molly
+mall maul mol
+malm mam
+mama mamma
+man mann
+manila manilla
+manley manly
+manner manor
+manners manors
+mantel mantle
+marc mark marque
+marche marsh
+marci marcy
+marcia marsha
+margery marjorie marjory
+margo margot
+marian marion
+marilyn marilynn
+marisa marissa
+marks marques marx
+marlboro marlborough
+marlin marlon
+marry mary merry
+marshal marshall martial
+marten martin
+marti marty
+maryann maryanne
+maser mazer
+massed mast
+mat matt matte
+mathew matthew
+mathews matthews
+mathias matthias
+mathilda matilda
+mats mattes matts
+maud maude mod
+maura mora
+mayer mayor
+mead meade
+mean mien
+meat meet mete
+meatier meteor
+meats meets
+medal meddle
+meier meyer
+mellon melon
+melvin melvyn
+merck murk
+mere mir
+mervin mervyn
+metal mettle
+meter metre
+meters metres
+meuse muse
+meyers myers
+mic mick
+mica micah
+mich mitch
+michael micheal
+michel michele michelle
+mickey mickie micky
+might mite
+mil mill
+miles myles
+mills mils
+mind mined
+miner minor
+miners minors
+mini minnie
+mink minke
+minot minute
+minutia minutiae
+missal missile
+missed mist
+missis missus mrs
+mitchel mitchell
+moan mon
+moat mote
+moats motes
+mobil mobile
+mode mowed
+moe mow
+mohamed mohammad
+mold mould
+molten moulton
+moneys monies
+monroe munro
+monsignor msgr
+montagu montague
+monterey monterrey
+moor moore
+moose mousse
+morgan morgen
+morison morrison
+morn mourn
+morning mourning
+mos moss
+mosel mosul
+mott motte
+mucous mucus
+murray murrey
+muscle mussel
+muscles mussels
+muskie musky
+mustard mustered
+naan non
+nader nadir
+naval navel
+nay neigh
+negroes negros
+nellie nelly
+nelsen nelson
+net nett
+nettie netty
+nicholas nicolas
+nichols nickels nickles
+nickel nickle
+nicks nix nyx
+noel noelle
+noise noyes
+none nun
+noose nous
+northrop northrup
+oar or ore orr
+oars ores
+oates oats
+ode owed
+oder odour
+ohs owes
+olsen olson
+olympiad olympiads
+one won
+oohs ooze
+opal opel
+orin orrin
+osborn osborne
+oui we wee wii
+overdo overdue
+paar par parr
+paced paste
+packed pact
+packs pax
+paean peon
+paeans peons
+page paige
+pail pale
+pails pales
+pain paine pane payne
+pains panes
+pair pare pear
+paired pared
+pairing paring
+pairs pares pears
+palace pallas
+palate palette pallet
+palates pallets
+pandit pundit
+parrish perish
+parry perry
+passed past
+paterson patterson
+paton patten patton
+patti pattie patty
+paul pol
+pause paws
+pay pei
+pea pee
+peace piece
+peak peek pique
+peaked peeked piqued
+peaking peeking
+peaks peeks
+peal peale peel peele
+pearl perl
+pearls perls
+peart pert
+peas pees
+peat pete
+pedal peddle
+pedalled peddled
+pedals peddles
+peer pier
+peers piers
+peirce pierce
+pen penn
+pena penna
+penney penny
+per pere purr
+petersen peterson
+pew pugh
+phebe phoebe
+phillis phyllis
+phosphorous phosphorus
+pic pick
+picket pickett
+picks pix
+pie pye
+pile pyle
+pinkie pinky
+pious pius
+pistil pistol
+pit pitt
+pitman pittman
+pits pitts
+plain plane
+plainer planar planer
+plains planes
+plait plate
+plaited plated
+plaiting plating
+plaits plates
+planck plank
+pleas please
+pleural plural
+plexiglas plexiglass
+plum plumb
+poke polk
+pokey poky
+pole poll
+poles polls pols
+poling polling
+pollack pollock
+polly poly
+poo pooh
+pool poole
+populace populous
+pore pour
+pored poured
+pores pours
+poring pouring
+porsche portia
+port porte
+poser poseur
+pots potts
+praise prays preys
+pray prey
+prayed preyed
+praying preying
+predominantly predominately
+premier premiere
+premieres premiers
+preppie preppy
+pride pried
+prier prior pryor
+pries prize
+priestley priestly
+principal principle
+principals principles
+privatisation privatization
+procter proctor
+profit prophet
+program programme
+pros prose
+protesters protestors
+psalter salter
+psi sigh
+pulls puls
+putts putz
+quail quale quayle
+quarts quartz
+quin quinn
+rabi robbie robby
+rachael rachel
+rack wrack
+racked wracked
+racket racquet
+racking wracking
+rae ray re
+raeburn rayburn
+rafael raphael
+rah raw
+rails rales
+rain reign rein
+rained reigned reined
+raining reigning reining
+rains reigns reins
+raise rays raze res
+raised razed
+raiser razor
+raisers razors
+raising razing
+rall raul
+ramsay ramsey
+randal randall
+randi randy
+rani ronnie ronny
+rap wrap
+rapped rapt wrapped
+rappelling repelling
+rapper wrapper
+rappers wrappers
+rapping wrapping
+raps wraps
+rath wrath
+read reade red redd
+reads reeds
+real reel riel
+realisable realizable
+realisation realization
+realisations realizations
+realise realize
+realised realized
+realises realizes
+reams reims
+reaves reeves
+rec reck wreck
+recognise recognize
+recognised recognized
+recognising recognizing
+reed reid
+reek wreak
+reeking wreaking
+reeks wreaks
+reilly riley wryly
+reinaldo reynaldo
+rene renee
+rep repp
+rest wrest
+resting wresting
+reuben ruben
+rex wrecks
+rhea ria
+rho roe row rowe
+rhode road rode rowed
+rhodes roads
+rhonda ronda
+rhone roan
+rhyme rime
+rhymes rimes
+rials riles
+rickey rickie
+rider ryder
+riffed rift
+riggs rigs
+right rite wright write
+righter writer
+rights rites wrights writes
+rile ryle
+ring wring
+ringer wringer
+ringing wringing
+ritz writs
+roach roche
+roam rome
+roams romes
+robbin robyn
+roc rock
+roca rocha
+roderick rodrick
+rodger roger
+rodgers rogers
+roes rose rows
+roland rowland
+role roll
+roles rolls
+rood rude
+roose rues ruse
+root route
+rooter router
+rooters routers
+roots routes
+rosie rosy
+rote wrote
+rouble rubel
+rough ruff
+roughing ruffing
+roux rue
+roxie roxy
+rung wrung
+rus russ
+russel russell rustle
+rye wry
+saab sob
+saba sabah
+sac sack
+sachs sacks sacs saks sax
+sail sale
+sailer sailor
+sails sales
+sain sane seine
+saline selene
+salk sauk
+sallie sally
+same sejm
+sammie sammy
+sara sarah serra
+sargent sergeant sgt
+sari sorry
+savanna savannah
+scary skerry
+scene seen
+schilling shilling
+schillings shillings
+schultz schulz
+schuman schumann
+sci sea see
+scilla scylla
+scot scott
+scull skull
+seal seel
+seam seem
+seaman seamen semen
+seams seems
+sean shaun shawn
+sear sere
+seas sees seize
+seek sikh
+seeks sikhs
+seoul sole soul
+serge surge
+sew so
+sewing sowing
+sewn sown
+shana shanna
+sharon sharron
+sharp sharpe
+shauna shawna
+shear sheer
+shelley shelly
+shepard shepherd sheppard
+shew shoe shoo
+shone shown
+shop shoppe
+shoppes shops
+sic sick
+side sighed
+sidney sydney
+sighs size
+sighted sited
+sign sine
+signaling signalling
+signs sines
+silvester sylvester
+silvia sylvia
+sim sym
+simeon simian
+sin syn
+sind sinned
+sing singh
+sioux sue
+siphon syphon
+sir sur
+sizable sizeable
+sky skye
+slay sleigh
+sleight slight
+sloan sloane
+sloe slow
+smokey smoky
+snider snyder
+soar sore
+soared sword
+soars sores
+sofia sophia
+solan solon
+soles souls
+some sum
+son sun
+sonia sonja
+sonny sunny
+sons suns
+sophie sophy
+sot sought
+sous sues
+souter suitor
+sovereign sovran
+spacial spatial
+spade spayed
+spahn spawn
+spear speer
+spec speck
+specks specs
+spencer spenser
+spits spitz
+st street
+stacey stacie stacy
+staff staph
+staid stayed
+stair stare
+stairs stares
+stake steak
+stakes steaks
+star starr
+stationary stationery
+steal steel steele
+steals steels
+stefanie stephanie
+stein stine
+step steppe
+stephen steven
+stephens stevens
+stephenson stevenson
+steppes steps
+sterling stirling
+stern sterne
+stew stu
+stewart stuart
+stich stitch
+sticks styx
+stile style
+stiles styles
+storey story
+stow stowe
+straight strait
+straights straits
+straus strauss
+suede swayed
+suisse swiss
+suite sweet
+suites sweets
+susie suzy
+sweeney sweeny
+tableau tableaux
+tacked tact
+tacks tax
+tai thai tie
+tail tale
+tailor taylor
+tails tales
+talkie talky
+talley tally
+tami tammie tammy
+tania tanya tonya
+tarry teri terri terrie terry
+tartar tarter
+taught taut
+tea tee
+team teem
+teaming teeming
+teams teems
+teas tease tees
+techs tex
+tel tell
+ten tenn
+tenner tenor
+terence terrance terrence
+teresa theresa
+tern terns turns
+terrell terrill
+thais ties
+their there
+tho though
+thorp thorpe
+threw through thru
+throes throws
+throne thrown
+tic tick
+ticks tics
+tide tied
+tighten titan
+tightens titans
+til till
+timber timbre
+tindal tyndall
+tine tyne
+tires tyres
+to too tue two
+toad toed towed
+tobey toby
+tod todd
+toe tow
+toeing towing
+toes tows
+told tolled
+tole toll
+tommie tommy
+ton tonne
+toni tony
+tonnes tons
+topography typography
+tor tore torr
+tori tory
+tort torte
+tough tuff
+touring turing
+townes towns
+tracey traci tracie tracy
+tracked tract
+tranquility tranquillity
+tray trey
+tricia trisha
+trip trippe
+troop troupe
+troops troupes
+tucks tux
+tunney tunny
+undo undue
+unshakable unshakeable
+use yous
+vail vale veil
+vain vane vein
+valerie valery
+vales veils
+vanes veins
+vary very
+vasquez vazquez
+vaughan vaughn
+velasquez velazquez
+vena vina
+venous venus
+vern verne
+vice vise
+vicki vickie vicky
+vide vied
+vita vitae
+vivian vivienne
+wack whack
+wacker whacker
+wade weighed
+waggoner wagoner
+wail wale whale
+wailing whaling
+wails wales whales
+wain wane wayne
+waist waste
+waists wastes
+wait waite weight
+waited weighted
+waiting weighting
+waits weights
+waive wave
+waived waved
+waiver waver
+waives waves
+waiving waving
+wal wall
+wald walled
+wank wonk
+wannabe wannabee
+wannabees wannabes
+war wore
+ware wear where
+wares warez wears
+warily wearily
+waring wearing
+warn worn
+wary wherry
+waterman watermen
+wax whacks
+way wei weigh whey
+ways weighs
+weak week
+weakly weekly
+wean wien
+weary wiry
+weather whether
+web webb
+weill while wile
+welles wells
+wen when
+wet whet
+wheeled wield
+whew woo
+which witch
+whicker wicker
+whig wig
+whigs wigs
+whiles wiles
+whine wine
+whines wines
+whining wining
+whirl whorl
+whirled world
+whit wit witt
+white wight
+whiteley whitely
+whither wither
+whoa woe
+why wye
+whys wise
+wilber wilbur
+wild wilde
+wiley wily wylie
+willie willy
+win wynn
+wind wined
+wolf wolfe wolff woolf
+wood would
+woolley woolly
+worst wurst
+wrangell wrangle
+yates yeats
+yoke yolk
+yokes yolks
+yore your
+yuck yuk
+zachary zachery
+zealand zeeland
+zeroes zeros

@@ -4,11 +4,12 @@ from collections.abc import Sequence
 from itertools import islice
 from pathlib import Path
 
-from contcheck.cli.corrupt import confusion_split
+from contcheck.cli.corrupt import confusion_split, load_confusions
 from contcheck.cli.device import choose_device, describe, visible_gpus
 from contcheck.corpus.jsonl import read_jsonl
 from contcheck.corpus.record import Record
-from contcheck.corrupt.config import load_gen_config
+from contcheck.corrupt.config import GenConfig, load_gen_config
+from contcheck.corrupt.confusables import ConfusionMap
 from contcheck.model.checkpoint import load_checkpoint
 from contcheck.model.tagger import TorchTagger
 from contcheck.spelling.symspell_dictionary import load_symspell_dictionary
@@ -63,7 +64,10 @@ def evaluate(
     gpus = visible_gpus()
     chosen = choose_device(device, gpus)
     print(describe(chosen, gpus))
-    checks = build_checks(records, gen_config=gen_config)
+    dictionary = load_symspell_dictionary()
+    checks = build_checks(
+        records, gen_config=load_gen_config(gen_config), confusions=load_confusions(dictionary)
+    )
     loaded = load_checkpoint(checkpoint, device=chosen)
     result = evaluate_tagger(
         records,
@@ -80,16 +84,18 @@ def evaluate(
     append_result(results, result)
     if baseline:
         reference = symspell_baseline(
-            records, dictionary=load_symspell_dictionary(), dataset=str(data), checks=checks
+            records, dictionary=dictionary, dataset=str(data), checks=checks
         )
         print()
         print(format_result(reference))
         append_result(results, reference)
 
 
-def build_checks(records: Sequence[Record], *, gen_config: Path) -> dict[CheckName, ProbeSet]:
+def build_checks(
+    records: Sequence[Record], *, gen_config: GenConfig, confusions: ConfusionMap
+) -> dict[CheckName, ProbeSet]:
     """The probe sets for every check, built from ``records``."""
-    split = confusion_split(load_gen_config(gen_config))
+    split = confusion_split(gen_config, confusions)
     checks = {
         CheckName.REAL_MISSPELLINGS: ProbeSet(
             ErrorKind.SPELLING, substitution_probes(records, load_misspellings())

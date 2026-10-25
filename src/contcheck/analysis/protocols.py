@@ -36,3 +36,11 @@ class WordClassLexicon(Protocol):
     def is_adverb(self, word: str) -> bool:
         """Whether ``word`` is a known adverb, ignoring case."""
         ...
+
+
+class Lemmatizer(Protocol):
+    """Knows which lemmas a word form can belong to, out of context."""
+
+    def lemmas(self, word: str) -> frozenset[str]:
+        """Every lemma ``word`` can have; empty when it is not a known English word."""
+        ...
