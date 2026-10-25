@@ -37,4 +37,5 @@ def test_eval_result_round_trips_through_json() -> None:
     restored = EvalResult.model_validate_json(result.model_dump_json())
 
     assert restored == result
+    assert (result.natural_misspellings, result.natural_misspelling_recall) == (0, 0.0)
     assert '"f05":1.0' in result.model_dump_json()

@@ -12,6 +12,7 @@ from contcheck.training.evaluate import (
     format_result,
     symspell_baseline,
 )
+from contcheck.training.misspellings import build_probes
 from contcheck.training.models import EvalResult
 from tests.conftest import FakeDictionary, FakeTokenizer
 
@@ -89,3 +90,32 @@ def test_format_result_lists_kinds_and_summary(
     assert text.splitlines()[0] == "perfect on fixture"
     assert "VerbTense               1.000  1.000  1.000       8" in text
     assert "false alarms per 1,000 clean words: 0.00 (56 words)" in text
+
+
+def test_probes_add_the_real_misspelling_check(
+    records: list[Record], tokenizer: FakeTokenizer
+) -> None:
+    probes = build_probes(records, {"store": ("stor",), "yesterday": ("yesturday",)})
+
+    tagged = evaluate_tagger(
+        records,
+        tagger=PerfectTenseTagger(),
+        tokenizer=tokenizer,
+        window=16,
+        stride=8,
+        batch_size=4,
+        name="perfect",
+        dataset="fixture",
+        probes=probes,
+    )
+    baseline = symspell_baseline(
+        records, dictionary=FakeDictionary(), dataset="fixture", probes=probes
+    )
+
+    assert tagged.natural_misspellings == baseline.natural_misspellings == len(probes) > 0
+    assert tagged.natural_misspelling_recall == 0.0
+    assert baseline.natural_misspelling_recall == 1.0
+    assert "real misspellings flagged: 1.000" in format_result(baseline)
+    assert "real misspellings" not in format_result(
+        symspell_baseline(records, dictionary=FakeDictionary(), dataset="x")
+    )

@@ -15,6 +15,7 @@ from contcheck.training.evaluate import (
     format_result,
     symspell_baseline,
 )
+from contcheck.training.misspellings import build_probes, load_misspellings
 
 BATCH_SIZE = 64
 
@@ -29,6 +30,9 @@ def evaluate(
     limit: int | None = None,
 ) -> None:
     """Print per-kind scores for a checkpoint on a record file and log them.
+
+    Also runs the real-misspelling check: common misspellings from a bundled list are
+    swapped into the records' correct words, and the share flagged as Spelling is shown.
 
     Parameters
     ----------
@@ -49,6 +53,7 @@ def evaluate(
     gpus = visible_gpus()
     chosen = choose_device(device, gpus)
     print(describe(chosen, gpus))
+    probes = build_probes(records, load_misspellings())
     loaded = load_checkpoint(checkpoint, device=chosen)
     result = evaluate_tagger(
         records,
@@ -59,12 +64,13 @@ def evaluate(
         batch_size=BATCH_SIZE,
         name=str(checkpoint),
         dataset=str(data),
+        probes=probes,
     )
     print(format_result(result))
     append_result(results, result)
     if baseline:
         reference = symspell_baseline(
-            records, dictionary=load_symspell_dictionary(), dataset=str(data)
+            records, dictionary=load_symspell_dictionary(), dataset=str(data), probes=probes
         )
         print()
         print(format_result(reference))
