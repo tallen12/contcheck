@@ -5,7 +5,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from contcheck.corpus.record import Record, Split, revert_edits
-from contcheck.taxonomy.kinds import ErrorKind
+from contcheck.taxonomy.kinds import ErrorKind, Formality
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +18,8 @@ class Report:
     errors_per_paragraph: Mapping[int, int]
     words: int
     round_trip_failures: int
+    informal_edits: int = 0
+    """Edits marked ``Formality.INFORMAL``, out of all edits in ``kinds``."""
 
 
 def round_trips(record: Record) -> bool:
@@ -31,6 +33,7 @@ def build_report(records: Iterable[Record]) -> Report:
     count = 0
     words = 0
     failures = 0
+    informal = 0
     splits: Counter[Split] = Counter()
     kinds: Counter[ErrorKind] = Counter()
     errors: Counter[int] = Counter()
@@ -39,9 +42,10 @@ def build_report(records: Iterable[Record]) -> Report:
         words += len(record.words)
         splits[record.split] += 1
         kinds.update(edit.kind for edit in record.edits)
+        informal += sum(edit.formality is Formality.INFORMAL for edit in record.edits)
         errors[len(record.edits)] += 1
         failures += not round_trips(record)
-    return Report(count, dict(splits), dict(kinds), dict(errors), words, failures)
+    return Report(count, dict(splits), dict(kinds), dict(errors), words, failures, informal)
 
 
 def _share(part: float, whole: float) -> str:
@@ -59,7 +63,8 @@ def format_report(
     target_kinds = dict[ErrorKind, float]() if target_kinds is None else target_kinds
     lines = [
         f"records: {report.records}   words: {report.words}   "
-        f"round-trip failures: {report.round_trip_failures}",
+        f"round-trip failures: {report.round_trip_failures}   "
+        f"informal edits: {report.informal_edits}",
         "",
         "split    records",
     ]

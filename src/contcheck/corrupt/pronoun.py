@@ -62,7 +62,18 @@ def _forms(context: CorruptionContext, i: int) -> tuple[str, ...]:
     if word == "I" and not context.tokens[i].sentence_start:
         # The applier copies the capital of I, which would give Me inside a sentence.
         return ()
-    return FORMS.get(lower, ())
+    forms = FORMS.get(lower, ())
+    if lower == "me" and _after_be(context, i):
+        # After be the nominative is the formal standard (it was I).
+        return tuple(form for form in forms if form != "I")
+    return forms
+
+
+def _after_be(context: CorruptionContext, i: int) -> bool:
+    j = i - 1
+    while j >= 0 and context.tags[j] == "RB":  # it was not me
+        j -= 1
+    return j >= 0 and context.tags[j].startswith("VB") and context.lemmas[j] == "be"
 
 
 class PronounCorruptor:

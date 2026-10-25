@@ -7,6 +7,7 @@ from contcheck.analysis.protocols import Inflector
 from contcheck.corrupt.context import CorruptionContext
 from contcheck.corrupt.edit import Edit
 from contcheck.corrupt.protocols import Rng
+from contcheck.corrupt.sampling import shuffled
 from contcheck.taxonomy.kinds import ErrorKind, Operation
 
 MAX_LOOKBACK = 3
@@ -79,8 +80,11 @@ class VerbFormCorruptor:
         self._inflector = inflector
 
     def corrupt(self, context: CorruptionContext, rng: Rng) -> Edit | None:
-        edits = [edit for i in range(len(context.tokens)) for edit in self._edits(context, i)]
-        return rng.choice(edits) if edits else None
+        # Stop at the first site with an edit, rather than building every edit to use one.
+        for i in shuffled(range(len(context.tokens)), rng):
+            if edits := self._edits(context, i):
+                return rng.choice(edits)
+        return None
 
     def _edits(self, context: CorruptionContext, i: int) -> list[Edit]:
         token = context.tokens[i]

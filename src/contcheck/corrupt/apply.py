@@ -121,7 +121,16 @@ def apply_edits(context: CorruptionContext, edits: Sequence[Edit]) -> Corrupted:
         start = edit.start + offset
         end = start + len(edit.new)
         offset += len(edit.new) - len(edit.orig)
-        records.append(EditRecord(start=start, end=end, kind=edit.kind, op=edit.op, orig=edit.orig))
+        records.append(
+            EditRecord(
+                start=start,
+                end=end,
+                kind=edit.kind,
+                op=edit.op,
+                orig=edit.orig,
+                formality=edit.formality,
+            )
+        )
         if end > start:
             spans.append(WordSpan(start, end, edit.kind))
         else:

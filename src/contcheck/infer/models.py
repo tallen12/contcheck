@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from contcheck.taxonomy.kinds import ErrorKind
+from contcheck.taxonomy.kinds import ErrorKind, Formality
 
 
 @dataclass(frozen=True, slots=True)
@@ -11,9 +11,12 @@ class SpanError:
 
     ``probability`` is the model's mean probability for the span's labels. The operation
     (Missing, Unnecessary, Replacement) is not predicted yet; the tagger only finds kinds.
+    ``formality`` comes from a :class:`~contcheck.infer.protocols.FormalityClassifier`
+    after decoding; decoding alone always gives ``ERROR``.
     """
 
     start: int
     end: int
     kind: ErrorKind
     probability: float
+    formality: Formality = Formality.ERROR
