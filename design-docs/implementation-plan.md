@@ -59,6 +59,8 @@ Define the error set once, in `contcheck.taxonomy`, and generate everything else
 
 **Operations (3):** Missing, Unnecessary, Replacement — kept as a separate field, not baked into the tag.
 
+**Formality (2):** Error (wrong in any register) or Informal (fine in casual writing, nonstandard in formal writing: "worked quick", "who did you see", "less people"). Also metadata beside the kind, not a kind of its own, because informality cuts across kinds and a word carries one label. Corruptors mark the informal variants they produce; after decoding, a `FormalityClassifier` (a rule table first, a model head only if context-dependent cases need it) sets each span's formality, and callers choose whether informal spans are reported. Informal uses already present in the clean corpus must get the same label, or the model sees both labels for one construction.
+
 ```python
 # src/contcheck/taxonomy/kinds.py
 from enum import Enum
@@ -390,7 +392,7 @@ Judge the model on real human errors with span-level F0.5, broken down by kind. 
 
 ## Phase 5 — Inference and CPU deployment
 
-Ship three artifacts — the tagger as int8 ONNX, the embedder as ONNX, and the SymSpell dictionary — behind one `check(text) -> list[Error]` function.
+Ship three artifacts — the tagger as int8 ONNX, the embedder as ONNX, and the SymSpell dictionary — behind one `check(text) -> list[Error]` function. Each error carries a formality, and `check` takes the formalities to report, so casual writing can skip informal flags.
 
 ### 5a. Inference flow (`contcheck.infer`)
 

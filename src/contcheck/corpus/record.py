@@ -6,7 +6,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from contcheck.taxonomy.kinds import ErrorKind, Operation
+from contcheck.taxonomy.kinds import ErrorKind, Formality, Operation
 from contcheck.taxonomy.labels import LABEL2ID
 
 
@@ -29,7 +29,8 @@ class EditRecord(BaseModel):
     """One error in a record, in noisy word indices.
 
     Replacing noisy words ``start`` to ``end`` (exclusive) by ``orig`` undoes the error.
-    Missing errors have ``start == end``: the clean words go into the gap.
+    Missing errors have ``start == end``: the clean words go into the gap. Records written
+    before ``formality`` existed load as ``ERROR``.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -39,6 +40,7 @@ class EditRecord(BaseModel):
     kind: ErrorKind
     op: Operation
     orig: tuple[str, ...]
+    formality: Formality = Formality.ERROR
 
     @model_validator(mode="after")
     def _check_range(self) -> Self:

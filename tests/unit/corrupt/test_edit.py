@@ -1,7 +1,7 @@
 import pytest
 
 from contcheck.corrupt.edit import Edit
-from contcheck.taxonomy.kinds import ErrorKind, Operation
+from contcheck.taxonomy.kinds import ErrorKind, Formality, Operation
 
 
 def test_valid_edits_for_each_operation() -> None:
@@ -26,3 +26,19 @@ def test_inconsistent_edits_are_rejected(
 ) -> None:
     with pytest.raises(ValueError):
         Edit(start, end, ErrorKind.SPELLING, op, orig, new)
+
+
+def test_edits_are_errors_unless_marked_informal() -> None:
+    plain = Edit(1, 2, ErrorKind.ADJECTIVE_ADVERB, Operation.REPLACEMENT, ("quickly",), ("quick",))
+    informal = Edit(
+        1,
+        2,
+        ErrorKind.ADJECTIVE_ADVERB,
+        Operation.REPLACEMENT,
+        ("quickly",),
+        ("quick",),
+        Formality.INFORMAL,
+    )
+
+    assert plain.formality is Formality.ERROR
+    assert informal.formality is Formality.INFORMAL
