@@ -7,7 +7,7 @@ errors_per_paragraph: {0: 0.15, 1: 0.40, 2: 0.30, 3: 0.15}
 adjacent_share: 0.1
 # Relative weight per kind; kinds without a corruptor are skipped.
 kind_weights:
-  Spelling: 3
+  Spelling: 1  # non-words are the SymSpell pre-pass's; kept as input noise
   RealWord: 2
   VerbTense: 2
   SubjectVerbAgreement: 2
