@@ -256,9 +256,9 @@ every JSONL file in the directory, so each source's `--limit` sets the mix.
 | `wikinews` | [`Fumika/Wikinews-multilingual`](https://huggingface.co/datasets/Fumika/Wikinews-multilingual) | CC BY 2.5 | yes (one 45 MB JSONL) | 5,240 English articles with paragraphs as clean lists; only `lang == "en"` rows are used |
 | `wikibooks`, `wikivoyage` | [`common-pile/wikimedia`](https://huggingface.co/datasets/common-pile/wikimedia) (`*_wikibooks.com.jsonl.gz`, `*_wikivoyage.com.jsonl.gz`) | CC BY-SA 4.0 per row | yes | Main namespace only. The wikitext conversion drops links and templates and leaves gaps (`the  of Brazil,,`); lines with such gaps are dropped |
 | `stackexchange` | [`HuggingFaceH4/stack-exchange-preferences`](https://huggingface.co/datasets/HuggingFaceH4/stack-exchange-preferences), one `data/<site>.stackexchange.com` directory per site | CC BY-SA 4.0 | yes | Answers as HTML with `pm_score = round(log2(1 + upvotes))`, +1 if accepted. Answers with `pm_score ≥ 4` (about 10 upvotes) from 25 prose-heavy sites, taken site by site; `english` and `ell` are left out because they quote wrong sentences on purpose |
-| `tinystories` (optional) | [`noanabeshima/TinyStoriesV2`](https://huggingface.co/datasets/noanabeshima/TinyStoriesV2) (`TinyStoriesV2-GPT4-train.jsonl`) | CDLA-Sharing 1.0 | yes (one 2.2 GB JSONL) | Short children's stories written by GPT-4: the V2 stories of [`roneneldan/TinyStories`](https://huggingface.co/datasets/roneneldan/TinyStories), one story per row and one paragraph per line. The original's parquet files hold V1, which mixes in GPT-3.5 stories with more errors. Rows have no id, so a story's id is a hash of its text. Simple vocabulary and syntax, much dialogue; not in the mix yet |
-| `simplestories` (optional) | [`SimpleStories/SimpleStories`](https://huggingface.co/datasets/SimpleStories/SimpleStories) | MIT | yes (7 parquet shards) | 2.1M short stories by gpt-4o-mini, each generated for a topic, theme, style, persona and grammar feature, which the rows record. More varied wording than TinyStories (type/token 0.11 against 0.08 on 20k words) and the most dialogue of any source (48% of paragraphs); id is the row's `generation_id`. Not in the mix yet |
-| `cosmopedia-stories` (optional) | [`HuggingFaceTB/cosmopedia`](https://huggingface.co/datasets/HuggingFaceTB/cosmopedia) `stories` | Apache 2.0 | yes | About 5M stories by Mixtral-8x7B for audiences from young children to adults; vocabulary as varied as the human sources (type/token 0.24) and the most first person (47% of paragraphs). Rows have no id, so a story's id is a hash of its text. Not in the mix yet |
+| `tinystories` | [`noanabeshima/TinyStoriesV2`](https://huggingface.co/datasets/noanabeshima/TinyStoriesV2) (`TinyStoriesV2-GPT4-train.jsonl`) | CDLA-Sharing 1.0 | yes (one 2.2 GB JSONL) | Short children's stories written by GPT-4: the V2 stories of [`roneneldan/TinyStories`](https://huggingface.co/datasets/roneneldan/TinyStories), one story per row and one paragraph per line. The original's parquet files hold V1, which mixes in GPT-3.5 stories with more errors. Rows have no id, so a story's id is a hash of its text. Simple vocabulary and syntax, much dialogue; 3,000 paragraphs in the mix, since SimpleStories covers the same ground with more varied wording |
+| `simplestories` | [`SimpleStories/SimpleStories`](https://huggingface.co/datasets/SimpleStories/SimpleStories) | MIT | yes (7 parquet shards) | 2.1M short stories by gpt-4o-mini, each generated for a topic, theme, style, persona and grammar feature, which the rows record. More varied wording than TinyStories (type/token 0.11 against 0.08 on 20k words) and the most dialogue of any source (48% of paragraphs); id is the row's `generation_id`. 12,000 paragraphs in the mix |
+| `cosmopedia-stories` | [`HuggingFaceTB/cosmopedia`](https://huggingface.co/datasets/HuggingFaceTB/cosmopedia) `stories` | Apache 2.0 | yes | About 5M stories by Mixtral-8x7B for audiences from young children to adults; vocabulary as varied as the human sources (type/token 0.24) and the most first person (47% of paragraphs). Rows have no id, so a story's id is a hash of its text. 10,000 paragraphs in the mix |
 
 Skipped: the Common Pile Wikinews files (the same lossy conversion drops most link text
 in news, for example "the of the People's Republic of China had lunch today with the of
@@ -325,7 +325,11 @@ Wikibooks still has a few dropped-link gaps the gap check cannot see ("It also h
 viceroy"). FineWeb-Edu has occasional lost dashes ("fresh air-and"). Hence the smaller
 share for Wikibooks below.
 
-**Fetch commands for the agreed mix** (100,000 paragraphs; scale the limits together):
+**Fetch commands for the agreed mix** (125,000 paragraphs; scale the limits together). The
+three generated story sources add 25,000 paragraphs, 20% of the mix, on top of the 100,000
+human-written ones. They bring narration, dialogue and first person with simple, nearly
+error-free grammar; their LLM style does not matter for a grammar tagger. They stay at a
+fifth so the human registers still dominate:
 
 ```bash
 just cli corpus fetch --source wikipedia --limit 35000 --out data/raw/wikipedia.jsonl
@@ -335,6 +339,9 @@ just cli corpus fetch --source wikinews --limit 4000 --out data/raw/wikinews.jso
 just cli corpus fetch --source wikivoyage --limit 4000 --out data/raw/wikivoyage.jsonl
 just cli corpus fetch --source wikibooks --limit 2000 --out data/raw/wikibooks.jsonl
 just cli corpus fetch --source stackexchange --limit 10000 --out data/raw/stackexchange.jsonl
+just cli corpus fetch --source simplestories --limit 12000 --out data/raw/simplestories.jsonl
+just cli corpus fetch --source cosmopedia-stories --limit 10000 --out data/raw/cosmopedia-stories.jsonl
+just cli corpus fetch --source tinystories --limit 3000 --out data/raw/tinystories.jsonl
 ```
 
 `--per-article 25` takes 1,000 books instead of 2,500 for Gutenberg, which streams about
@@ -345,5 +352,5 @@ filter; remove it before `corrupt --in data/raw`, or it is read as well.
 
 | Decision | Assumption |
 | --- | --- |
-| Clean corpus for the PoC | First run: English Wikipedia (`wikimedia/wikipedia`, CC BY-SA 4.0) through `datasets`. From the real-word runs on: Wikipedia 35%, Gutenberg fiction 25%, FineWeb-Edu 20%, Wikinews/Wikivoyage/Wikibooks 10%, Stack Exchange 10% (see [Corpus sources](#corpus-sources-2026-10-24)); BookCorpus, CC-News, OpenSubtitles and raw Reddit, email or forum text are avoided as clean text |
+| Clean corpus for the PoC | First run: English Wikipedia (`wikimedia/wikipedia`, CC BY-SA 4.0) through `datasets`. From the real-word runs on: Wikipedia 35%, Gutenberg fiction 25%, FineWeb-Edu 20%, Wikinews/Wikivoyage/Wikibooks 10%, Stack Exchange 10% (see [Corpus sources](#corpus-sources-2026-10-24)). With the generated stories (2026-10-25): Wikipedia 28%, Gutenberg 20%, FineWeb-Edu 16%, Wikinews/Wikivoyage/Wikibooks 8%, Stack Exchange 8%, SimpleStories 9.6%, Cosmopedia stories 8%, TinyStories 2.4%; BookCorpus, CC-News, OpenSubtitles and raw Reddit, email or forum text are avoided as clean text |
 | Hardware | Training on the RX 7900 XT with the `rocm` build; everything else on CPU |
