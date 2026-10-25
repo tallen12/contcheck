@@ -35,3 +35,4 @@ secrets/
 
 # Corpora, generated data and checkpoints (see design-docs/implementation-plan.md)
 /data/
+/runs/
