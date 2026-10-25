@@ -1,0 +1,53 @@
+# Real-word confusion sets, one per line. A word belongs to at most one set.
+# Contractions (they're, it's, you're) are left out: the tokenizer splits them.
+their there
+then than
+to too
+lose loose
+affect effect
+accept except
+form from
+quiet quite
+were where wear
+whether weather
+advice advise
+piece peace
+principal principle
+breath breathe
+cite site sight
+desert dessert
+choose chose
+of off
+know no
+new knew
+write right rite
+hear here
+buy by
+passed past
+lead led
+through threw
+weak week
+whole hole
+complement compliment
+stationary stationery
+allowed aloud
+brake break
+fair fare
+later latter
+sense since
+personal personnel
+council counsel
+four for
+plain plane
+role roll
+sale sail
+steal steel
+waist waste
+wait weight
+hour our
+meat meet
+flour flower
+board bored
+course coarse
+farther further
+dose does
