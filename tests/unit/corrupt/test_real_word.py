@@ -9,7 +9,6 @@ from contcheck.corrupt.context import CorruptionContext
 from contcheck.corrupt.real_word import (
     RealWordCorruptor,
     load_confusion_sets,
-    match_case,
     parse_confusion_sets,
     weighted_index,
 )
@@ -49,7 +48,8 @@ def test_corruptor_swaps_within_a_set(analyzer: FakeAnalyzer) -> None:
     edits = {corruptor.corrupt(context, random.Random(seed)) for seed in range(20)}
 
     assert {(e.orig, e.new) for e in edits if e is not None} == {
-        (("Then",), ("Than",)),
+        # Casing is the applier's job: it turns "than" into "Than" at the sentence start.
+        (("Then",), ("than",)),
         (("from",), ("form",)),
     }
     assert all(e is not None and e.kind is ErrorKind.REAL_WORD for e in edits)
@@ -81,8 +81,8 @@ def test_corruptor_follows_the_weights(analyzer: FakeAnalyzer) -> None:
     edits = [corruptor.corrupt(context, random.Random(seed)) for seed in range(200)]
     news = Counter(e.new[0] for e in edits if e is not None)
 
-    assert news["Than"] > 10 * news["Them"]
-    assert news["Than"] > 10 * news["form"]
+    assert news["than"] > 10 * news["them"]
+    assert news["than"] > 10 * news["form"]
 
 
 def test_repeated_words_are_not_favoured(analyzer: FakeAnalyzer) -> None:
@@ -104,13 +104,3 @@ def test_weighted_index_draws_in_proportion() -> None:
 
     assert counts[1] == 0
     assert 2.5 < counts[2] / counts[0] < 3.5
-
-
-@pytest.mark.parametrize(
-    ("template", "expected"),
-    [("then", "than"), ("Then", "Than"), ("THEN", "THAN"), ("I", "Eye")],
-)
-def test_match_case(template: str, expected: str) -> None:
-    word = "eye" if template == "I" else "than"
-
-    assert match_case(word, template) == expected

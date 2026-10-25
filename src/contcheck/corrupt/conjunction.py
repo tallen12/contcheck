@@ -1,4 +1,8 @@
-"""Conjunction: swap a conjunction for one that breaks the meaning or the grammar."""
+"""Conjunction: swap a conjunction for one that breaks the grammar.
+
+Swaps that only change the meaning (and for or, if for unless, because for although)
+leave correct English the text alone cannot fault, so they are not made.
+"""
 
 from collections.abc import Mapping
 
@@ -7,46 +11,41 @@ from contcheck.corrupt.edit import Edit
 from contcheck.corrupt.protocols import Rng
 from contcheck.taxonomy.kinds import ErrorKind, Operation
 
-# Coordinators, tagged CC. A sentence-initial And or But is skipped: swapping one for the
-# other there is usually still fine.
-COORDINATING: Mapping[str, tuple[str, ...]] = {
-    "and": ("but", "or"),
-    "but": ("and", "so"),
-    "or": ("and", "nor"),
-    "nor": ("or",),
-}
+# Coordinators, tagged CC. ``nor`` needs a negation before it, so it is only put in for
+# ``or`` in a sentence without one. A sentence-initial coordinator is skipped.
+COORDINATING: Mapping[str, tuple[str, ...]] = {"or": ("nor",)}
+NEGATIONS = frozenset({"not", "n't", "no", "never", "neither", "nothing", "none", "nobody"})
 # Subordinators, tagged IN. ``despite`` takes a noun phrase, not a clause, so it is
-# always wrong in their place. than/then belongs to RealWord, that and whether are left
-# alone because swapping them is rarely a real error.
+# always wrong in their place.
 SUBORDINATING: Mapping[str, tuple[str, ...]] = {
-    "because": ("although", "so"),
-    "although": ("because", "despite"),
-    "though": ("because", "despite"),
-    "while": ("because", "despite"),
-    "unless": ("if", "until"),
-    "if": ("unless",),
-    "until": ("unless",),
+    "although": ("despite",),
+    "though": ("despite",),
+    "while": ("despite",),
 }
-# ``so`` joining clauses is tagged CC, IN or RB depending on the tagger; after a comma
-# it is the conjunction (it rained, so we stayed).
-SO_SWAPS = ("because", "but")
+
+
+def _negated_before(context: CorruptionContext, i: int) -> bool:
+    for j in range(i - 1, -1, -1):
+        if context.words[j].lower() in NEGATIONS:
+            return True
+        if context.tokens[j].sentence_start:
+            return False
+    return False
 
 
 def _swaps(context: CorruptionContext, i: int) -> tuple[str, ...]:
     word = context.words[i].lower()
     tag = context.tags[i]
-    if word == "so":
-        return SO_SWAPS if i > 0 and context.words[i - 1] == "," else ()
     if tag == "CC" and not context.tokens[i].sentence_start:
-        return COORDINATING.get(word, ())
+        return () if _negated_before(context, i) else COORDINATING.get(word, ())
     if tag == "IN":
         return SUBORDINATING.get(word, ())
     return ()
 
 
 class ConjunctionCorruptor:
-    """Replaces one conjunction by another that changes the sense or the grammar
-    (because for although, but for and)."""
+    """Replaces one conjunction by another that breaks the grammar (despite for although,
+    nor for or without a negation)."""
 
     kind = ErrorKind.CONJUNCTION
 

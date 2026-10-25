@@ -37,8 +37,8 @@ def test_corrupt_writes_valid_round_tripping_records(raw: Path, tmp_path: Path) 
     first = tmp_path / "first.jsonl"
     second = tmp_path / "second.jsonl"
 
-    corrupt(config=config, in_=raw, out=first)
-    corrupt(config=config, in_=raw, out=second)
+    corrupt(config=config, in_=raw, out=first, cache=tmp_path / "confusions.json")
+    corrupt(config=config, in_=raw, out=second, cache=tmp_path / "confusions.json")
 
     records = list(read_jsonl(first, Record))
     report = build_report(records)
@@ -58,7 +58,7 @@ def test_corrupt_with_word_choice_round_trips(raw: Path, tmp_path: Path) -> None
     )
     out = tmp_path / "records.jsonl"
 
-    corrupt(config=config, in_=raw, out=out)
+    corrupt(config=config, in_=raw, out=out, cache=tmp_path / "confusions.json")
 
     records = list(read_jsonl(out, Record))
     report = build_report(records)

@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from contcheck.corpus.record import EditRecord, Record, RecordSource, Split
-from contcheck.taxonomy.kinds import ErrorKind, Operation
+from contcheck.taxonomy.kinds import ErrorKind, Formality, Operation
 
 
 def record(**changes: object) -> Record:
@@ -53,3 +53,22 @@ def test_only_missing_edits_have_an_empty_range() -> None:
         EditRecord(start=1, end=2, kind=ErrorKind.DETERMINER, op=Operation.MISSING, orig=())
     with pytest.raises(ValidationError, match="invalid range"):
         EditRecord(start=2, end=1, kind=ErrorKind.DETERMINER, op=Operation.REPLACEMENT, orig=())
+
+
+def test_formality_defaults_to_error_for_older_records() -> None:
+    edit = EditRecord.model_validate(
+        {"start": 2, "end": 3, "kind": "VerbTense", "op": "R", "orig": ["went"]}
+    )
+    informal = EditRecord.model_validate(
+        {
+            "start": 2,
+            "end": 3,
+            "kind": "VerbTense",
+            "op": "R",
+            "orig": ["went"],
+            "formality": "informal",
+        }
+    )
+
+    assert edit.formality is Formality.ERROR
+    assert informal.formality is Formality.INFORMAL

@@ -45,3 +45,17 @@ class Operation(StrEnum):
     MISSING = "M"
     UNNECESSARY = "U"
     REPLACEMENT = "R"
+
+
+class Formality(StrEnum):
+    """Whether a flagged span is wrong in any register, or only in formal writing.
+
+    Kept as metadata next to the kind, like :class:`Operation`, because informality cuts
+    across kinds: "worked quick" is AdjectiveAdverb, "who did you see" PronounForm,
+    "less people" Determiner. Callers choose whether informal spans are reported.
+    """
+
+    ERROR = "error"
+    """Wrong in any register."""
+    INFORMAL = "informal"
+    """Acceptable in casual writing, nonstandard in formal writing."""

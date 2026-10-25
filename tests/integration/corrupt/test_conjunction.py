@@ -28,4 +28,5 @@ def test_finds_sites_in_a_realistic_paragraph(analyzer: SpacyAnalyzer) -> None:
 
     found = {(e.orig, e.new) for e in edits if e is not None}
     assert all(e is not None and e.kind is ErrorKind.CONJUNCTION for e in edits)
-    assert {orig for orig, _ in found} >= {("Although",), ("so",), ("and",)}
+    # "so" and "and" are not swapped: their swaps only change the meaning.
+    assert found == {(("Although",), ("despite",))}

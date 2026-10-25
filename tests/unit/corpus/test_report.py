@@ -1,6 +1,6 @@
 from contcheck.corpus.record import EditRecord, Record, RecordSource, Split
 from contcheck.corpus.report import build_report, format_report, round_trips
-from contcheck.taxonomy.kinds import ErrorKind, Operation
+from contcheck.taxonomy.kinds import ErrorKind, Formality, Operation
 
 TENSE = EditRecord(
     start=1, end=2, kind=ErrorKind.VERB_TENSE, op=Operation.REPLACEMENT, orig=("went",)
@@ -66,3 +66,12 @@ def test_format_without_targets() -> None:
 
     assert "records: 0" in text
     assert "VerbTense" not in text
+
+
+def test_report_counts_informal_edits() -> None:
+    informal = TENSE.model_copy(update={"formality": Formality.INFORMAL})
+
+    report = build_report([record((informal, DROP)), record((TENSE, DROP))])
+
+    assert report.informal_edits == 1
+    assert "informal edits: 1" in format_report(report)

@@ -1,5 +1,7 @@
 import random
 
+import pytest
+
 from contcheck.analysis.models import TenseHistogram
 from contcheck.corrupt.context import CorruptionContext
 from contcheck.corrupt.edit import Edit
@@ -18,6 +20,8 @@ LEXICON = {
     "saw": ("VBD", "see"),
     "did": ("VBD", "do"),
     "man": ("NN", "man"),
+    "was": ("VBD", "be"),
+    "not": ("RB", "not"),
     "us": ("NNP", "US"),
 }
 ANALYZER = FakeAnalyzer(LEXICON)
@@ -75,3 +79,15 @@ def test_who_becomes_whom_only_as_a_relative_subject(rng: random.Random) -> None
     assert corrupt("The man who walks.", rng) == Edit(
         2, 3, ErrorKind.PRONOUN_FORM, Operation.REPLACEMENT, ("who",), ("whom",)
     )
+
+
+@pytest.mark.parametrize("text", ["It was me.", "It was not me."])
+def test_me_after_be_never_becomes_i(text: str) -> None:
+    # "It was I" is the formal standard, so only the reflexive is a clear error.
+    ctx = context(text)
+
+    news = {
+        e.new for seed in range(20) if (e := PronounCorruptor().corrupt(ctx, random.Random(seed)))
+    }
+
+    assert news == {("myself",)}

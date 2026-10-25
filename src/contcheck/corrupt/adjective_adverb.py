@@ -6,6 +6,7 @@ from contcheck.analysis.protocols import WordClassLexicon
 from contcheck.corrupt.context import CorruptionContext
 from contcheck.corrupt.edit import Edit
 from contcheck.corrupt.protocols import Rng
+from contcheck.corrupt.sampling import shuffled
 from contcheck.taxonomy.kinds import ErrorKind, Operation
 
 IRREGULAR_ADVERBS: Mapping[str, str] = {"good": "well"}
@@ -85,8 +86,11 @@ class AdjectiveAdverbCorruptor:
         self._lexicon = lexicon
 
     def corrupt(self, context: CorruptionContext, rng: Rng) -> Edit | None:
-        edits = [edit for i in range(len(context.tokens)) if (edit := self._swap(context, i))]
-        return rng.choice(edits) if edits else None
+        # Stop at the first site with an edit, rather than building every edit to use one.
+        for i in shuffled(range(len(context.tokens)), rng):
+            if (edit := self._swap(context, i)) is not None:
+                return edit
+        return None
 
     def _swap(self, context: CorruptionContext, i: int) -> Edit | None:
         word = context.words[i]

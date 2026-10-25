@@ -19,7 +19,13 @@ def test_evaluate_prints_and_logs_model_and_baseline(
     write_jsonl(data, [make_record(i, noisy=i % 2 == 0) for i in range(4)])
     results = tmp_path / "results.jsonl"
 
-    evaluate(checkpoint=checkpoint, data=data, results=results, device="cpu")
+    evaluate(
+        checkpoint=checkpoint,
+        data=data,
+        results=results,
+        device="cpu",
+        cache=tmp_path / "confusions.json",
+    )
 
     output = capsys.readouterr().out
     assert f"{checkpoint} on {data}" in output
@@ -33,7 +39,14 @@ def test_evaluate_without_baseline(checkpoint: Path, tmp_path: Path) -> None:
     write_jsonl(data, [make_record(0, noisy=True)])
     results = tmp_path / "results.jsonl"
 
-    evaluate(checkpoint=checkpoint, data=data, results=results, device="cpu", baseline=False)
+    evaluate(
+        checkpoint=checkpoint,
+        data=data,
+        results=results,
+        device="cpu",
+        baseline=False,
+        cache=tmp_path / "confusions.json",
+    )
 
     assert len(results.read_text(encoding="utf-8").splitlines()) == 1
 

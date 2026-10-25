@@ -1,5 +1,7 @@
 import random
 
+import pytest
+
 from contcheck.analysis.models import TenseHistogram
 from contcheck.corrupt.context import CorruptionContext
 from contcheck.corrupt.edit import Edit
@@ -24,6 +26,9 @@ LEXICON = {
     "gave": ("VBD", "give"),
     "him": ("PRP", "he"),
     "plan": ("NN", "plan"),
+    "about": ("IN", "about"),
+    "into": ("IN", "into"),
+    "book": ("NN", "book"),
 }
 ANALYZER = FakeAnalyzer(LEXICON)
 
@@ -92,3 +97,15 @@ def test_corruptor_falls_back_to_an_operation_with_a_site() -> None:
 
 def test_corruptor_without_any_site(rng: random.Random) -> None:
     assert PrepositionCorruptor().corrupt(context("Dogs walk."), rng) is None
+
+
+@pytest.mark.parametrize("text", ["I read a book about dogs.", "I walk into the park."])
+def test_swaps_that_often_fit_are_not_made(text: str, rng: random.Random) -> None:
+    # about/on and into/in usually both fit, so swapping them would label good English.
+    assert swap_preposition(context(text), rng) is None
+
+
+def test_about_can_still_be_dropped(rng: random.Random) -> None:
+    assert drop_preposition(context("I waited about the plan."), rng) == Edit(
+        2, 3, ErrorKind.PREPOSITION, Operation.MISSING, ("about",), ()
+    )

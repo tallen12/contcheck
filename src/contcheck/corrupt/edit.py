@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import assert_never
 
-from contcheck.taxonomy.kinds import ErrorKind, Operation
+from contcheck.taxonomy.kinds import ErrorKind, Formality, Operation
 
 
 @dataclass(frozen=True, slots=True)
@@ -12,6 +12,7 @@ class Edit:
 
     Indices are in the clean words. ``op`` describes the noisy result the way ERRANT
     would: deleting words makes them Missing, inserting words makes them Unnecessary.
+    ``formality`` is ``INFORMAL`` when the noisy text is only nonstandard in formal writing.
     """
 
     start: int
@@ -20,6 +21,7 @@ class Edit:
     op: Operation
     orig: tuple[str, ...]
     new: tuple[str, ...]
+    formality: Formality = Formality.ERROR
 
     def __post_init__(self) -> None:
         if self.start < 0 or self.end < self.start:

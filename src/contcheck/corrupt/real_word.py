@@ -45,21 +45,12 @@ def weighted_index(weights: Sequence[float], rng: Rng) -> int:
     return min(bisect_right(totals, rng.random() * totals[-1]), len(totals) - 1)
 
 
-def match_case(word: str, template: str) -> str:
-    """``word`` cased like ``template``: all capitals, a capital first letter or as is."""
-    if len(template) > 1 and template.isupper():
-        return word.upper()
-    if template[:1].isupper():
-        return word[:1].upper() + word[1:]
-    return word
-
-
 class RealWordCorruptor:
     """Replaces a word by one it is often confused with, such as then for than.
 
     A confusable word type in the paragraph is drawn by its total weight, so a word that
     occurs five times is not five times as likely; then one of its occurrences, then an
-    alternative by weight. The alternative takes the original's capitalization.
+    alternative by weight. The applier gives the alternative the original's capitalization.
     """
 
     kind = ErrorKind.REAL_WORD
@@ -80,4 +71,4 @@ class RealWordCorruptor:
         word = context.words[i]
         alternatives = self._confusions.alternatives(word)
         new = alternatives[weighted_index([c.weight for c in alternatives], rng)].alternative
-        return Edit(i, i + 1, self.kind, Operation.REPLACEMENT, (word,), (match_case(new, word),))
+        return Edit(i, i + 1, self.kind, Operation.REPLACEMENT, (word,), (new,))

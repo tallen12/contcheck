@@ -20,7 +20,7 @@ from contcheck.corrupt.context import CorruptionContext
 from contcheck.corrupt.edit import Edit
 from contcheck.corrupt.protocols import Rng
 from contcheck.corrupt.registry import CorruptorRegistry
-from contcheck.taxonomy.kinds import ErrorKind, Operation
+from contcheck.taxonomy.kinds import ErrorKind, Formality, Operation
 from tests.conftest import FakeAnalyzer
 
 NO_TENSE = TenseHistogram(0.0, 0.0, 0.0, 0.0)
@@ -318,3 +318,15 @@ def test_adjacent_mode_falls_back_to_separate_edits(
     edits = choose_edits(ctx, registry, adjacent, rng)
 
     assert [(e.start, e.end) for e in edits] == [(2, 3), (6, 7)]
+
+
+def test_formality_is_carried_into_the_record(analyzer: FakeAnalyzer) -> None:
+    ctx = context(analyzer, "we walk home quickly")
+    informal = Edit(
+        3, 4, ErrorKind.ADJECTIVE_ADVERB, R, ("quickly",), ("quick",), Formality.INFORMAL
+    )
+
+    result = apply_edits(ctx, [informal])
+
+    assert result.edits[0].formality is Formality.INFORMAL
+    assert result.labels[3] == "B-AdjectiveAdverb"
