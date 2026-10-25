@@ -24,3 +24,15 @@ class Inflector(Protocol):
     def inflect(self, lemma: str, tag: str) -> tuple[str, ...]:
         """Return the forms of ``lemma`` for ``tag``, most common first; empty if none."""
         ...
+
+
+class WordClassLexicon(Protocol):
+    """Knows whether a word is listed as an adjective or an adverb."""
+
+    def is_adjective(self, word: str) -> bool:
+        """Whether ``word`` is a known adjective, ignoring case."""
+        ...
+
+    def is_adverb(self, word: str) -> bool:
+        """Whether ``word`` is a known adverb, ignoring case."""
+        ...
