@@ -31,6 +31,7 @@ contcheck/
     spelling/         # SymSpell adapter: dictionary lookup and suggestions
     annotation/       # ERRANT adapter mapping edits through taxonomy
     corrupt/          # rule-based corruptors, one module per error kind, plus the applier
+    llm/              # LLMClient protocol + OpenAI-compatible chat adapter
     llm_gen/          # local-LLM generation + ERRANT relabeling
     corpus/           # merge, dedupe, document-level splits, distribution report
     features/         # doc vector: embedding, tense histogram, cache
@@ -59,7 +60,7 @@ Define the error set once, in `contcheck.taxonomy`, and generate everything else
 
 **Operations (3):** Missing, Unnecessary, Replacement — kept as a separate field, not baked into the tag.
 
-**Formality (2):** Error (wrong in any register) or Informal (fine in casual writing, nonstandard in formal writing: "worked quick", "who did you see", "less people"). Also metadata beside the kind, not a kind of its own, because informality cuts across kinds and a word carries one label. Corruptors mark the informal variants they produce; after decoding, a `FormalityClassifier` (a rule table first, a model head only if context-dependent cases need it) sets each span's formality, and callers choose whether informal spans are reported. Informal uses already present in the clean corpus must get the same label, or the model sees both labels for one construction.
+**Formality (2):** Error (wrong in any register) or Informal (fine in casual writing, nonstandard in formal writing: "worked quick", "who did you see", "less people"). Also metadata beside the kind, not a kind of its own, because informality cuts across kinds and a word carries one label. Corruptors mark the informal variants they produce; after decoding, a `FormalityClassifier` (a rule table first, a model head only if context-dependent cases need it) sets each span's formality, and callers choose whether informal spans are reported. Informal uses already present in the clean corpus must get the same label, or the model sees both labels for one construction. Whether informal edits are labeled like errors, left unlabeled, or scored separately is still open, so the corruption applier rejects informal edits until it is decided; the `FormalityClassifier` lands with its first rule table.
 
 ```python
 # src/contcheck/taxonomy/kinds.py
@@ -106,7 +107,7 @@ Train on synthetic errors from two generators, and keep real human errors for ev
 
 1. Collect 50k–200k clean paragraphs, grouped into 2–5 paragraph documents (keep `doc_id` so document context is real).
 2. Mix registers: encyclopedic, news, fiction (for past-tense narration), technical, informal.
-3. Filter: drop paragraphs the SymSpell pass flags heavily, or that a strong grammar check rewrites. Errors left in "clean" text become false negatives in training.
+3. Filter: drop paragraphs the SymSpell pass flags heavily, or that a strong grammar check rewrites. Errors left in "clean" text become false negatives in training. The grammar check is a local LLM: `contcheck corpus annotate --in data/raw --out data/annotated --base-url http://localhost:11434/v1` asks it, per paragraph, for the minimal changes as JSON (`original`, an exact substring; `replacement`; `type`, `error` or `informal`), retries invalid replies and changes whose `original` is not in the paragraph, and writes one JSONL line per paragraph with the located changes and corrected text. The run resumes from the paragraph hashes already written. The server URL comes from `--base-url` or `CONTCHECK_LLM_BASE_URL`, and an optional key from `CONTCHECK_LLM_API_KEY`.
 4. Split by **document**, not sentence, so no document leaks across train/val/test.
 
 ### 1b. Rule-based corruptor (`contcheck.corrupt`)
@@ -131,7 +132,7 @@ Sampling: 0–3 errors per paragraph, \~15% of paragraphs left clean, kind frequ
 
 For naturalistic, multi-word errors the rules can't produce.
 
-1. Run a local 7–14B instruct model (Qwen, Gemma or Llama class) via Ollama.
+1. Run a local 7–14B instruct model (Qwen, Gemma or Llama class) via Ollama, through the `LLMClient` in `contcheck.llm` that corpus annotation (1a) already uses: any server with the OpenAI-compatible chat API works.
 2. Prompt: rewrite the paragraph as a specific writer profile would (ESL intermediate, fast typist, child), keeping meaning and changing only grammar and spelling.
 3. **Ignore the LLM's own description of its changes.** Run ERRANT on `(noisy, clean)` to extract and classify edits, then map through `errant_map.py`.
 4. Reject outputs with too many edits, low word overlap with the source, or any unmapped edit type.

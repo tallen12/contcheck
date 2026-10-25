@@ -90,16 +90,23 @@ def load_confusions(dictionary: SymSpellDictionary, *, cache: Path) -> Confusion
 
 def _confusions_key() -> str:
     # Everything the build reads: the word list and lemmatizer versions, the bundled
-    # data, the settings and the code that combines them.
-    package = files("contcheck.corrupt")
+    # data, the settings and the code that shapes the map, including the adapters that
+    # supply lemmas, frequencies and suggestions and the confusion-set parser.
+    corrupt_package = files("contcheck.corrupt")
+    sources = [
+        corrupt_package / "confusables.py",
+        corrupt_package / "real_word.py",
+        files("contcheck.analysis") / "lemminflect_lemmatizer.py",
+        files("contcheck.spelling") / "symspell_dictionary.py",
+        corrupt_package / "data" / CONFUSION_SETS,
+        corrupt_package / "data" / HOMOPHONES,
+    ]
     return cache_key(
         [
             version("symspellpy"),
             version("lemminflect"),
             repr(DEFAULT_CONFUSION_SETTINGS),
-            (package / "confusables.py").read_text(encoding="utf-8"),
-            (package / "data" / CONFUSION_SETS).read_text(encoding="utf-8"),
-            (package / "data" / HOMOPHONES).read_text(encoding="utf-8"),
+            *(source.read_text(encoding="utf-8") for source in sources),
         ]
     )
 

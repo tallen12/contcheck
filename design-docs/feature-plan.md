@@ -61,7 +61,8 @@ protocols and implementations in separate modules.
 | `spelling` | `Dictionary` protocol, SymSpell adapter (lookup and suggestions) | C2 |
 | `annotation` | `Annotator` protocol, ERRANT adapter mapping edits through `taxonomy` | C2 |
 | `corrupt` | `Edit`, corruptor registry, one module per kind, applier, generation config | C2 |
-| `llm_gen` | `LLMClient` protocol, Ollama adapter, prompts, relabeling, filters | C5 |
+| `llm` | `LLMClient` protocol, chat value types, OpenAI-compatible HTTP adapter | F20 (pulled forward) |
+| `llm_gen` | Writer profiles, prompts, relabeling, filters | C5 |
 | `model` | Tokenizer alignment, windows, collator, `ContextTagger` | C3 |
 | `training` | Train loop, metrics, evaluation, ONNX export | C3 |
 | `features` | `Embedder` protocol, doc vector assembly, cache | C4 |
@@ -71,7 +72,10 @@ protocols and implementations in separate modules.
 
 `analysis`, `spelling` and `annotation` are not in the implementation plan's layout: they
 are adapters several domains share (the corruptors, doc vector, inference and correctors
-all use spaCy and SymSpell; M2, M3 and M5 all use ERRANT), so each gets one owner.
+all use spaCy and SymSpell; M2, M3 and M5 all use ERRANT), so each gets one owner. `llm`
+is split out of `llm_gen` for the same reason: corpus annotation (below), generation (F21)
+and the structural corrector (F30) all call the same client, as `lm` serves both the
+word-choice corruptor and the correctors.
 
 ## Features
 
@@ -108,6 +112,21 @@ replacement a masked LM proposes and a contrastive filter keeps only when the co
 clearly rejects it (implementation plan, Phase 1b). `CompositeCorruptor` mixes it with
 the confusion sets under the one RealWord registry slot, by `word_choice_share`. Its
 `MaskedScorer` (`lm/`) is the protocol F26 builds on.
+
+Corpus annotation (`corpus`, `llm`; pulled forward from C5 and F20): the clean corpus
+holds errors and informal uses of its own, which become false negatives in training
+(implementation plan, Phase 1a step 3). `contcheck corpus annotate` asks a local LLM, per
+paragraph, for the minimal changes that fix it, each marked `error` or `informal`, and
+writes one resumable JSONL line per paragraph with the changes located in the text and
+the corrected paragraph. It needed the `LLMClient` now, so the client part of C5 and F20
+landed early in `llm/`, over the OpenAI-compatible chat API (Ollama, llama.cpp and vLLM
+all serve it) rather than Ollama's own. The default model is `qwen3-coder:30b`: on 200
+paragraphs across the seven sources it flagged 42% at about 60 paragraphs a minute (about
+28 hours per 100k), and 22 of 50 hand-checked changes were real fixes, against 7 of 50 for
+`qwen3:8b` (68% flagged) and none of 25 for `karen-the-editor-v2-strict` (99% flagged,
+free rewrites). Its flags still need filtering before they drop paragraphs. What the cleaning step does with the annotations
+(drop flagged paragraphs, use the corrected text, or label informal uses) is decided
+when F6's filter uses them.
 
 The implementation plan puts Spelling, RealWord, VerbTense, SubjectVerbAgreement and
 Determiner first. Each corruptor feature builds its first-priority kind first, so a
@@ -148,12 +167,13 @@ the feature-code version constant, and `sentence-transformers`. Then:
 
 ### Wave 8: M5 LLM data (`feat/m5-llm-data`)
 
-C5 lands first (one agent): the `LLMClient` protocol, writer profiles and prompt template
-types, the `llm` section of `GenConfig`, and `httpx`. Then, in parallel:
+C5 lands first (one agent): writer profiles and prompt template types and the `llm`
+section of `GenConfig`. The `LLMClient` protocol, `httpx` and F20 already landed with
+corpus annotation (Wave 3). Then, in parallel:
 
 | ID | Feature | Domain | Hard deps | Scope |
 | --- | --- | --- | --- | --- |
-| F20 | Ollama client | `llm_gen` | C5 | `LLMClient` over the Ollama HTTP API with timeouts, retries and parallel requests. Unit tests on `httpx.MockTransport`; an `llm` test against a running Ollama |
+| F20 | LLM client (done early) | `llm` | — | `LLMClient` over the OpenAI-compatible `/v1/chat/completions` API: base URL and model, optional Bearer key from an environment variable, timeout, retries with backoff on connection errors, 429 and 5xx, a concurrency limit, JSON-schema replies, reasoning off. Unit tests on `httpx.MockTransport`; an `llm` test against a running server |
 | F21 | Generation, relabeling and filters | `llm_gen` | C5, F5 | Prompt per paragraph and profile, `n` sampled 1–4, ERRANT relabel ignoring the LLM's own description, filters (1–6 edits, length ratio 0.9–1.1, character similarity ≥ 0.85, no unmapped types, no chatter), `contcheck generate` with resumable output |
 | F22 | Data mix | `corpus` | F11, F21 | Rule/LLM mix ratio in `merge` (start 70/30), then the rule-only vs rule+LLM comparison on real eval data. **Ends M5** |
 

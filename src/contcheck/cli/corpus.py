@@ -1,13 +1,17 @@
-"""``contcheck corpus``, ``merge`` and ``report``: fetch, combine and inspect data."""
+"""``contcheck corpus``, ``merge`` and ``report``: fetch, annotate, combine and inspect data."""
 
+import os
+import time
 from enum import StrEnum
 from itertools import chain
 from pathlib import Path
-from typing import assert_never
+from typing import Annotated, assert_never
 
-from cyclopts import App
+import httpx
+from cyclopts import App, Parameter
 
 from contcheck.cli.corrupt import RULE_KINDS
+from contcheck.corpus.annotate import ParagraphAnnotator, RunSettings, annotate_files
 from contcheck.corpus.cleanliness import CleanlinessConfig, CleanlinessFilter, CountingScreen
 from contcheck.corpus.fetch import ParagraphFilter, fetch_paragraphs
 from contcheck.corpus.fineweb import FineWebEduArticles
@@ -23,7 +27,14 @@ from contcheck.corpus.wikimedia import Wiki, WikimediaArticles
 from contcheck.corpus.wikinews import WikinewsArticles
 from contcheck.corpus.wikipedia import SIMPLE_SNAPSHOT, WikipediaArticles, stream_from_hub
 from contcheck.corrupt.config import load_gen_config
+from contcheck.llm.models import ClientConfig
+from contcheck.llm.openai_chat import OpenAIChatClient
 from contcheck.spelling.symspell_dictionary import load_symspell_dictionary
+
+DEFAULT_LLM_MODEL = "qwen3-coder:30b"
+BASE_URL_ENV = "CONTCHECK_LLM_BASE_URL"
+MODEL_ENV = "CONTCHECK_LLM_MODEL"
+API_KEY_ENV = "CONTCHECK_LLM_API_KEY"
 
 
 class CorpusSource(StrEnum):
@@ -95,6 +106,78 @@ def build_corpus_app() -> App:
         count = write_jsonl(out, paragraphs)
         print(f"wrote {count} paragraphs to {out}")
         print(f"cleanliness: {screen.summary()}")
+
+    @app.command
+    def annotate(
+        *,
+        source: Annotated[Path, Parameter(name="--in")],
+        out: Path,
+        model: Annotated[str, Parameter(env_var=MODEL_ENV)] = DEFAULT_LLM_MODEL,
+        base_url: Annotated[str | None, Parameter(env_var=BASE_URL_ENV)] = None,
+        api_key_env: str = API_KEY_ENV,
+        concurrency: int = 4,
+        limit: int | None = None,
+        timeout: float = 120.0,
+        retries: int = 3,
+        attempts: int = 3,
+    ) -> None:
+        """Ask a local LLM which changes it would make to each clean paragraph.
+
+        Writes one JSONL line per paragraph to ``out/<input name>`` with the changes
+        (each typed error or informal) and the corrected text; failures go to
+        ``out/failed/``. Paragraphs already in the output are skipped, so rerunning
+        resumes.
+
+        Parameters
+        ----------
+        source
+            Raw paragraph JSONL file, or a folder of them.
+        out
+            Folder for the annotated files.
+        model
+            Model name on the server.
+        base_url
+            OpenAI-compatible API root, such as ``http://localhost:11434/v1``.
+        api_key_env
+            Environment variable holding an API key, sent as a bearer token when set.
+        concurrency
+            Requests in flight at once; match the server's parallel slots.
+        limit
+            Most new paragraphs to annotate, across all files.
+        timeout
+            Seconds to wait for one reply.
+        retries
+            Retries after a connection error, timeout, 429 or 5xx reply.
+        attempts
+            Tries per paragraph when the reply is not valid JSON or quotes text the
+            paragraph lacks.
+        """
+        if base_url is None:
+            raise SystemExit(f"pass --base-url or set {BASE_URL_ENV}")
+        key = os.environ.get(api_key_env, "")
+        api_key = key if key else None
+        config = ClientConfig(
+            base_url=base_url,
+            model=model,
+            api_key=api_key,
+            timeout=timeout,
+            retries=retries,
+            concurrency=concurrency,
+        )
+        auth = "no API key" if api_key is None else f"bearer token from ${api_key_env}"
+        print(f"annotating with {model} at {base_url} ({auth}), {concurrency} in parallel")
+        with httpx.Client() as http:
+            annotator = ParagraphAnnotator(
+                OpenAIChatClient(http, config), model=model, attempts=attempts
+            )
+            annotate_files(
+                source,
+                out,
+                annotator.annotate,
+                settings=RunSettings(concurrency=concurrency, limit=limit),
+                clock=time.monotonic,
+                log=print,
+            )
 
     return app
 

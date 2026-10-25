@@ -6,6 +6,8 @@ naming everything the map was built from; a different key means a stale file.
 """
 
 import hashlib
+import os
+import tempfile
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -40,7 +42,11 @@ def cache_key(parts: Iterable[str]) -> str:
 
 
 def save_confusion_map(path: Path, confusions: ConfusionMap, *, key: str) -> None:
-    """Write ``confusions`` with the ``key`` of the inputs they were built from."""
+    """Write ``confusions`` with the ``key`` of the inputs they were built from.
+
+    The file appears whole or not at all: it is written beside ``path`` and then moved
+    into place, so a concurrent reader or an interrupted write never sees half a map.
+    """
     cached = _CachedMap(
         key=key,
         confusions=tuple(
@@ -51,7 +57,14 @@ def save_confusion_map(path: Path, confusions: ConfusionMap, *, key: str) -> Non
         ),
     )
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(cached.model_dump_json() + "\n", encoding="utf-8")
+    descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as file:
+            file.write(cached.model_dump_json() + "\n")
+        Path(temporary).replace(path)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
 
 
 def load_confusion_map(path: Path, *, key: str) -> ConfusionMap | None:

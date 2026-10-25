@@ -41,3 +41,13 @@ def test_cache_key_depends_on_every_part_and_their_order() -> None:
     assert cache_key(["a", "b"]) == cache_key(["a", "b"])
     assert cache_key(["a", "b"]) != cache_key(["b", "a"])
     assert cache_key(["ab"]) != cache_key(["a", "b"])
+
+
+def test_saving_leaves_no_temporary_file_and_replaces_an_old_map(tmp_path: Path) -> None:
+    path = tmp_path / "confusions.json"
+    path.write_text("not json", encoding="utf-8")
+
+    save_confusion_map(path, MAP, key="k1")
+
+    assert load_confusion_map(path, key="k1") == MAP
+    assert [p.name for p in tmp_path.iterdir()] == ["confusions.json"]
