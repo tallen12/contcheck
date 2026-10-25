@@ -38,11 +38,20 @@ class Server:
 
 
 def make_client(
-    server: Server, *, api_key: str | None = None, retries: int = 3
+    server: Server,
+    *,
+    api_key: str | None = None,
+    retries: int = 3,
+    reasoning_switch: bool = False,
 ) -> tuple[OpenAIChatClient, list[float]]:
     waits: list[float] = []
     config = ClientConfig(
-        base_url=BASE_URL, model="m", api_key=api_key, retries=retries, backoff=1.0
+        base_url=BASE_URL,
+        model="m",
+        api_key=api_key,
+        retries=retries,
+        backoff=1.0,
+        reasoning_switch=reasoning_switch,
     )
     http = httpx.Client(transport=httpx.MockTransport(server))
     return OpenAIChatClient(http, config, sleep=waits.append), waits
@@ -66,7 +75,26 @@ def test_posts_the_chat_and_returns_the_first_choice() -> None:
     ]
     assert body["temperature"] == 0.2
     assert body["max_tokens"] == 50
-    assert body["reasoning_effort"] == "none"
+    assert "reasoning_effort" not in body
+
+
+def test_turns_reasoning_off_only_on_servers_that_take_the_switch() -> None:
+    server = Server([completion("a")])
+    client, _ = make_client(server, reasoning_switch=True)
+
+    client.complete(MESSAGES, options=ChatOptions())
+
+    assert json.loads(server.requests[0].content)["reasoning_effort"] == "none"
+
+
+@pytest.mark.parametrize("status", [501, 505])
+def test_permanent_server_errors_fail_at_once(status: int) -> None:
+    server = Server([httpx.Response(status, text="no")])
+    client, waits = make_client(server)
+
+    with pytest.raises(LLMError, match=f"HTTP {status}"):
+        client.complete(MESSAGES, options=ChatOptions())
+    assert waits == []
 
 
 def test_sends_the_bearer_token_only_when_a_key_is_set() -> None:
@@ -157,7 +185,12 @@ def test_missing_content_reads_as_empty() -> None:
 def test_request_body_adds_the_schema_and_keeps_thinking_when_asked() -> None:
     schema = {"type": "object"}
 
-    body = request_body("m", MESSAGES, ChatOptions(json_schema=schema, schema_name="s", think=True))
+    body = request_body(
+        "m",
+        MESSAGES,
+        ChatOptions(json_schema=schema, schema_name="s", think=True),
+        reasoning_switch=True,
+    )
 
     assert body["response_format"] == {
         "type": "json_schema",

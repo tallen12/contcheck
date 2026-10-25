@@ -34,7 +34,7 @@ class ChatOptions:
     ``json_schema`` asks the server to constrain the reply to that schema (servers that
     cannot still get the instruction in the prompt). ``think=False`` turns off the
     reasoning output of models such as qwen3, which would otherwise spend most of the
-    time budget on it.
+    time budget on it, on servers whose ``ClientConfig`` says they take that switch.
     """
 
     temperature: float = 0.0
@@ -59,6 +59,10 @@ class ClientConfig:
     ``repr`` so it never reaches a log. Failed requests are retried ``retries`` times,
     waiting ``backoff * 2**attempt`` seconds (at most ``max_backoff``) in between; at
     most ``concurrency`` requests are in flight at once.
+
+    ``reasoning_switch`` says the server takes ``reasoning_effort: "none"`` (Ollama does).
+    It is off by default because other servers and models reject that value with a 400,
+    which would fail every request.
     """
 
     base_url: str
@@ -69,6 +73,7 @@ class ClientConfig:
     backoff: float = 1.0
     max_backoff: float = 30.0
     concurrency: int = 4
+    reasoning_switch: bool = False
 
     def __post_init__(self) -> None:
         if not self.base_url:

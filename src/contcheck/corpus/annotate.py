@@ -8,7 +8,7 @@ appended to and skip paragraphs already there, so an interrupted run resumes.
 
 import json
 import re
-from collections import deque
+from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
@@ -31,6 +31,7 @@ from contcheck.corpus.annotated import (
     paragraph_hash,
 )
 from contcheck.corpus.documents import RawParagraph
+from contcheck.corpus.jsonl import read_jsonl, write_jsonl
 from contcheck.corpus.readers import read_paragraphs
 from contcheck.llm.models import ChatOptions, LLMError
 from contcheck.llm.protocols import LLMClient
@@ -41,6 +42,8 @@ FAILED_DIR = "failed"
 DEFAULT_ATTEMPTS = 3
 RETRY_TEMPERATURE_STEP = 0.3
 REPLY_EXCERPT = 2000
+CLOSING = frozenset(".,;:!?)]\"'\u201d\u2019")
+"""Characters a deletion must not leave a space before."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,12 +103,19 @@ def locate_changes(text: str, proposed: Sequence[ProposedChange]) -> Located | I
     first free one anywhere, so repeated words resolve in reading order. An occurrence
     that starts or ends inside a word does not count. Changes that leave their span as
     it is are dropped.
+
+    A quote that occurs more often than changes use it is ambiguous: with one change for
+    "their" in "their dog and their cat", which one is meant cannot be told, so the reply
+    is rejected (and retried) rather than guessed.
     """
+    changes = [change for change in proposed if change.original != change.replacement]
+    quoted = Counter(change.original for change in changes)
+    for original, uses in quoted.items():
+        if _occurrence_count(text, original) > uses:
+            return Invalid(FailureReason.AMBIGUOUS, f"occurs more than once: {original!r}")
     taken: list[Change] = []
     cursor = 0
-    for change in proposed:
-        if change.original == change.replacement:
-            continue
+    for change in changes:
         start = _free_occurrence(text, change.original, cursor, taken)
         if start is None:
             start = _free_occurrence(text, change.original, 0, taken)
@@ -136,6 +146,20 @@ def _free_occurrence(text: str, needle: str, cursor: int, taken: Sequence[Change
     return None
 
 
+def _occurrence_count(text: str, needle: str) -> int:
+    """Non-overlapping whole-word occurrences of ``needle`` in ``text``."""
+    count = 0
+    start = text.find(needle)
+    while start >= 0:
+        end = start + len(needle)
+        if _splits_a_word(text, needle, start, end):
+            start = text.find(needle, start + 1)
+        else:
+            count += 1
+            start = text.find(needle, end)
+    return count
+
+
 def _splits_a_word(text: str, needle: str, start: int, end: int) -> bool:
     # Models quote whole words, so "is" must not match inside "disapprove", nor
     # "floor trader" inside "floor traders".
@@ -145,13 +169,24 @@ def _splits_a_word(text: str, needle: str, start: int, end: int) -> bool:
 
 
 def apply_changes(text: str, changes: Sequence[Change]) -> str:
-    """``text`` with non-overlapping ``changes`` applied."""
+    """``text`` with non-overlapping ``changes`` applied.
+
+    A deletion also removes one space it leaves doubled or stranded: "the the cat" loses
+    "the" and a space, and "it is is." becomes "it is.".
+    """
     parts: list[str] = []
     position = 0
     for change in sorted(changes, key=lambda c: c.start):
-        parts.append(text[position : change.start])
-        parts.append(change.replacement)
+        before = text[position : change.start]
         position = change.end
+        if not change.replacement:
+            following = text[position : position + 1]
+            if before.endswith(" ") and (following in ("", " ") or following in CLOSING):
+                before = before[:-1]
+            elif change.start == 0 and following == " ":
+                position += 1
+        parts.append(before)
+        parts.append(change.replacement)
     parts.append(text[position:])
     return "".join(parts)
 
@@ -253,10 +288,14 @@ def annotate_concurrently(
 
 @dataclass(slots=True)
 class Tally:
-    """Running counts for one input file."""
+    """Running counts for one input file.
+
+    ``planned`` is how many paragraphs this run sends, after skips and ``--limit``.
+    """
 
     total: int
     skipped: int = 0
+    planned: int = 0
     annotated: int = 0
     flagged: int = 0
     failed: int = 0
@@ -279,11 +318,11 @@ class Tally:
 def format_progress(name: str, tally: Tally, *, elapsed: float) -> str:
     """One progress line: counts, throughput, flagged share and time left."""
     rate = tally.done / elapsed * 60 if elapsed > 0 else 0.0
-    remaining = tally.total - tally.skipped - tally.done
+    remaining = tally.planned - tally.done
     flagged = tally.flagged / tally.annotated if tally.annotated else 0.0
     eta = _duration(remaining / rate * 60) if rate > 0 else "?"
     return (
-        f"{name}: {tally.done}/{tally.total - tally.skipped} new"
+        f"{name}: {tally.done}/{tally.planned} new"
         f" ({tally.skipped} skipped as done or repeated) | {rate:.1f} paragraphs/min"
         f" | flagged {flagged:.0%} | failed {tally.failed} | left {eta}"
     )
@@ -301,22 +340,46 @@ def input_files(path: Path) -> list[Path]:
     return [path]
 
 
-def done_hashes(path: Path) -> set[str]:
-    """Hashes already in an output file; drops a final line cut off by an interrupted run."""
+type ParagraphKey = tuple[str, str]
+"""A paragraph's ``(source_id, hash)``: the same text under two sources is two paragraphs,
+so each document gets its own annotation."""
+
+
+def paragraph_key(source_id: str, text: str) -> ParagraphKey:
+    """The key that marks a paragraph as done."""
+    return source_id, paragraph_hash(text)
+
+
+def done_keys(path: Path) -> set[ParagraphKey]:
+    """Keys already in an output file; drops a final line cut off by an interrupted run."""
     if not path.exists():
         return set()
     content = path.read_bytes()
     complete = content[: content.rfind(b"\n") + 1]
     if len(complete) != len(content):
         path.write_bytes(complete)
-    hashes: set[str] = set()
+    keys: set[ParagraphKey] = set()
     for number, line in enumerate(complete.decode("utf-8").splitlines(), start=1):
         if line.strip():
             try:
-                hashes.add(AnnotatedParagraph.model_validate_json(line).hash)
+                paragraph = AnnotatedParagraph.model_validate_json(line)
             except ValidationError as error:
                 raise ValueError(f"{path}:{number}: {error}") from error
-    return hashes
+            keys.add((paragraph.source_id, paragraph.hash))
+    return keys
+
+
+def prune_failures(path: Path, *, drop: set[ParagraphKey]) -> None:
+    """Remove failure-log entries for paragraphs in ``drop``: those annotated since, and
+    those about to be retried, so the log holds each still-failing paragraph once."""
+    if not path.exists():
+        return
+    kept = [
+        failure
+        for failure in read_jsonl(path, FailedParagraph)
+        if (failure.source_id, failure.hash) not in drop
+    ]
+    write_jsonl(path, kept)
 
 
 @dataclass(frozen=True, slots=True)
@@ -340,9 +403,9 @@ def annotate_files(
     """Annotate every paragraph of ``source`` (a JSONL file or a folder of them).
 
     Each input file appends to ``out_dir/<name>``; failures go to
-    ``out_dir/failed/<name>`` and are retried on the next run. Paragraphs whose hash is
-    already in the output (or earlier in this run) are skipped. ``settings.limit`` caps
-    new paragraphs across all files.
+    ``out_dir/failed/<name>`` and are retried on the next run, which also drops their old
+    entries. Paragraphs whose source and text are already in the output (or earlier in
+    this run) are skipped. ``settings.limit`` caps new paragraphs across all files.
     """
     budget = settings.limit
     tallies: list[Tally] = []
@@ -351,16 +414,19 @@ def annotate_files(
             break
         out = out_dir / file.name
         out.parent.mkdir(parents=True, exist_ok=True)
-        seen = done_hashes(out)
+        done = done_keys(out)
         paragraphs = list(read_paragraphs(file))
         tally = Tally(total=len(paragraphs))
-        todo = _new_paragraphs(paragraphs, seen, tally)
+        todo = _new_paragraphs(paragraphs, set(done), tally)
         if budget is not None:
             todo = todo[:budget]
             budget -= len(todo)
+        tally.planned = len(todo)
         tallies.append(tally)
         started = clock()
         failed_path = out_dir / FAILED_DIR / file.name
+        retried = {paragraph_key(p.source_id, p.text) for p in todo}
+        prune_failures(failed_path, drop=done | retried)
         with out.open("a", encoding="utf-8", newline="\n") as sink:
             for outcome in annotate_concurrently(todo, annotate, concurrency=settings.concurrency):
                 tally.add(outcome)
@@ -372,15 +438,15 @@ def annotate_files(
 
 
 def _new_paragraphs(
-    paragraphs: Sequence[RawParagraph], seen: set[str], tally: Tally
+    paragraphs: Sequence[RawParagraph], seen: set[ParagraphKey], tally: Tally
 ) -> list[RawParagraph]:
     todo: list[RawParagraph] = []
     for paragraph in paragraphs:
-        digest = paragraph_hash(paragraph.text)
-        if digest in seen:
+        key = paragraph_key(paragraph.source_id, paragraph.text)
+        if key in seen:
             tally.skipped += 1
             continue
-        seen.add(digest)
+        seen.add(key)
         todo.append(paragraph)
     return todo
 

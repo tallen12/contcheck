@@ -16,16 +16,18 @@ from contcheck.corpus.annotate import (
     annotate_concurrently,
     annotate_files,
     apply_changes,
-    done_hashes,
+    done_keys,
     extract_json,
     format_progress,
     input_files,
     locate_changes,
     parse_reply,
+    prune_failures,
 )
 from contcheck.corpus.annotated import (
     Annotated,
     AnnotatedParagraph,
+    Change,
     Failed,
     FailedParagraph,
     FailureReason,
@@ -38,6 +40,8 @@ from contcheck.corpus.jsonl import read_jsonl, write_jsonl
 from contcheck.llm.models import LLMError
 from contcheck.taxonomy.kinds import Formality
 from tests.conftest import FakeLLMClient
+
+ERROR = Formality.ERROR
 
 TEXT = "Their going to the park, and the park are big."
 REPLY = json.dumps(
@@ -142,6 +146,31 @@ def test_apply_changes_rebuilds_the_text() -> None:
     assert apply_changes(TEXT, ()) == TEXT
 
 
+@pytest.mark.parametrize(
+    ("text", "start", "end", "expected"),
+    [
+        ("the the cat", 4, 7, "the cat"),  # between words: one space goes
+        ("It is is.", 6, 8, "It is."),  # before punctuation: no space is stranded
+        ("Well, so it goes.", 0, 5, "so it goes."),  # at the start: the next space goes
+    ],
+)
+def test_deleting_text_leaves_no_doubled_or_stranded_space(
+    text: str, start: int, end: int, expected: str
+) -> None:
+    change = Change(start=start, end=end, original=text[start:end], replacement="", type=ERROR)
+
+    assert apply_changes(text, [change]) == expected
+
+
+def test_a_quote_that_occurs_more_often_than_it_is_changed_is_ambiguous() -> None:
+    text = "their dog and their cat"
+
+    result = locate_changes(text, [proposed("their", "there"), proposed("dog", "dogs")])
+
+    assert isinstance(result, Invalid)
+    assert result.reason is FailureReason.AMBIGUOUS
+
+
 def test_annotator_returns_the_changes_and_corrected_text() -> None:
     client = FakeLLMClient([REPLY])
     annotator = ParagraphAnnotator(client, model="m")
@@ -244,7 +273,7 @@ def test_annotate_concurrently_needs_a_worker() -> None:
 
 
 def test_format_progress_reports_rate_share_and_time_left() -> None:
-    tally = Tally(total=110, skipped=10, annotated=20, flagged=5, failed=5)
+    tally = Tally(total=110, skipped=10, planned=100, annotated=20, flagged=5, failed=5)
 
     line = format_progress("a.jsonl", tally, elapsed=60)
 
@@ -262,7 +291,17 @@ def test_input_files_takes_a_file_or_the_jsonl_files_of_a_folder(tmp_path: Path)
     assert input_files(tmp_path / "a.jsonl") == [tmp_path / "a.jsonl"]
 
 
-def test_done_hashes_drops_a_cut_off_last_line(tmp_path: Path) -> None:
+def test_format_progress_counts_only_what_this_run_sends() -> None:
+    # With --limit 10 on a 1,000-paragraph file, only 10 are planned.
+    tally = Tally(total=1000, planned=10, annotated=10)
+
+    line = format_progress("a.jsonl", tally, elapsed=60)
+
+    assert line.startswith("a.jsonl: 10/10 new")
+    assert line.endswith("left 0h00m")
+
+
+def test_done_keys_drops_a_cut_off_last_line(tmp_path: Path) -> None:
     out = tmp_path / "a.jsonl"
     outcome = clean(RawParagraph(source_id="s", text="Done."))
     assert isinstance(outcome, Annotated)
@@ -270,19 +309,19 @@ def test_done_hashes_drops_a_cut_off_last_line(tmp_path: Path) -> None:
         outcome.paragraph.model_dump_json() + '\n{"source_id": "s", "ha', encoding="utf-8"
     )
 
-    hashes = done_hashes(out)
+    keys = done_keys(out)
 
-    assert hashes == {paragraph_hash("Done.")}
+    assert keys == {("s", paragraph_hash("Done."))}
     assert out.read_text(encoding="utf-8").endswith("}\n")
-    assert done_hashes(tmp_path / "missing.jsonl") == set()
+    assert done_keys(tmp_path / "missing.jsonl") == set()
 
 
-def test_done_hashes_rejects_a_corrupt_complete_line(tmp_path: Path) -> None:
+def test_done_keys_rejects_a_corrupt_complete_line(tmp_path: Path) -> None:
     out = tmp_path / "a.jsonl"
     out.write_text("{}\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match=r"a.jsonl:1"):
-        done_hashes(out)
+        done_keys(out)
 
 
 class Clock:
@@ -326,7 +365,7 @@ def test_annotate_files_writes_skips_resumes_and_logs_failures(tmp_path: Path) -
     assert annotated == ["One.", "Two."]
     assert [p.text for p in read_jsonl(out / "b.jsonl", AnnotatedParagraph)] == ["Three."]
     failed = list(read_jsonl(out / "failed" / "a.jsonl", FailedParagraph))
-    assert [f.hash for f in failed] == [paragraph_hash("Bad.")] * 2
+    assert [f.hash for f in failed] == [paragraph_hash("Bad.")]
     assert [(t.annotated, t.failed, t.skipped) for t in first] == [(2, 1, 1), (1, 0, 0)]
     assert [(t.annotated, t.failed, t.skipped) for t in second] == [(0, 1, 3), (0, 0, 1)]
     assert any(line.startswith("a.jsonl: 2/3 new") for line in lines)
@@ -344,3 +383,42 @@ def test_annotate_files_stops_at_the_limit(tmp_path: Path) -> None:
 
     assert [t.annotated for t in tallies] == [1]
     assert not (out / "b.jsonl").exists()
+
+
+def test_the_same_text_under_two_sources_is_annotated_for_each(tmp_path: Path) -> None:
+    raw = tmp_path / "a.jsonl"
+    write_jsonl(
+        raw,
+        [
+            RawParagraph(source_id="doc1", text="Same."),
+            RawParagraph(source_id="doc2", text="Same."),
+        ],
+    )
+    out = tmp_path / "out"
+
+    annotate_files(raw, out, clean, settings=RunSettings(), clock=Clock(), log=lambda _: None)
+
+    sources = [p.source_id for p in read_jsonl(out / "a.jsonl", AnnotatedParagraph)]
+    assert sources == ["doc1", "doc2"]
+
+
+def test_prune_failures_keeps_only_paragraphs_still_failing(tmp_path: Path) -> None:
+    path = tmp_path / "failed.jsonl"
+
+    def failure(text: str) -> FailedParagraph:
+        return FailedParagraph(
+            source_id="s",
+            hash=paragraph_hash(text),
+            reason=FailureReason.INVALID_JSON,
+            detail="x",
+            reply="",
+            model="m",
+            attempts=1,
+        )
+
+    write_jsonl(path, [failure("Fixed."), failure("Stuck."), failure("Fixed.")])
+
+    prune_failures(path, drop={("s", paragraph_hash("Fixed."))})
+
+    assert [f.hash for f in read_jsonl(path, FailedParagraph)] == [paragraph_hash("Stuck.")]
+    prune_failures(tmp_path / "missing.jsonl", drop=set())

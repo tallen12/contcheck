@@ -120,6 +120,7 @@ def build_corpus_app() -> App:
         timeout: float = 120.0,
         retries: int = 3,
         attempts: int = 3,
+        reasoning_switch: bool = False,
     ) -> None:
         """Ask a local LLM which changes it would make to each clean paragraph.
 
@@ -147,10 +148,13 @@ def build_corpus_app() -> App:
         timeout
             Seconds to wait for one reply.
         retries
-            Retries after a connection error, timeout, 429 or 5xx reply.
+            Retries after a connection error, timeout, or a 429, 500, 502, 503 or 504 reply.
         attempts
             Tries per paragraph when the reply is not valid JSON or quotes text the
             paragraph lacks.
+        reasoning_switch
+            Send ``reasoning_effort: "none"`` to turn off thinking (Ollama with qwen3).
+            Leave off for servers that reject the field.
         """
         if base_url is None:
             raise SystemExit(f"pass --base-url or set {BASE_URL_ENV}")
@@ -163,6 +167,7 @@ def build_corpus_app() -> App:
             timeout=timeout,
             retries=retries,
             concurrency=concurrency,
+            reasoning_switch=reasoning_switch,
         )
         auth = "no API key" if api_key is None else f"bearer token from ${api_key_env}"
         print(f"annotating with {model} at {base_url} ({auth}), {concurrency} in parallel")

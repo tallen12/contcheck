@@ -77,6 +77,9 @@ class FailureReason(StrEnum):
     """The reply held no JSON that matches the schema."""
     NOT_FOUND = "not_found"
     """A change's ``original`` is not in the paragraph (or only where another change is)."""
+    AMBIGUOUS = "ambiguous"
+    """A change's ``original`` occurs more often than changes quote it, so which one is
+    meant is unknown."""
 
 
 class FailedParagraph(BaseModel):

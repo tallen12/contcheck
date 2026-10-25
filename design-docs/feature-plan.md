@@ -173,7 +173,7 @@ corpus annotation (Wave 3). Then, in parallel:
 
 | ID | Feature | Domain | Hard deps | Scope |
 | --- | --- | --- | --- | --- |
-| F20 | LLM client (done early) | `llm` | — | `LLMClient` over the OpenAI-compatible `/v1/chat/completions` API: base URL and model, optional Bearer key from an environment variable, timeout, retries with backoff on connection errors, 429 and 5xx, a concurrency limit, JSON-schema replies, reasoning off. Unit tests on `httpx.MockTransport`; an `llm` test against a running server |
+| F20 | LLM client (done early) | `llm` | — | `LLMClient` over the OpenAI-compatible `/v1/chat/completions` API: base URL and model, optional Bearer key from an environment variable, timeout, retries with backoff on connection errors, 429, 500, 502, 503 and 504, a concurrency limit, JSON-schema replies, and reasoning turned off on servers that take `reasoning_effort` (opt-in, since others reject it). Unit tests on `httpx.MockTransport`; an `llm` test against a running server |
 | F21 | Generation, relabeling and filters | `llm_gen` | C5, F5 | Prompt per paragraph and profile, `n` sampled 1–4, ERRANT relabel ignoring the LLM's own description, filters (1–6 edits, length ratio 0.9–1.1, character similarity ≥ 0.85, no unmapped types, no chatter), `contcheck generate` with resumable output |
 | F22 | Data mix | `corpus` | F11, F21 | Rule/LLM mix ratio in `merge` (start 70/30), then the rule-only vs rule+LLM comparison on real eval data. **Ends M5** |
 
